@@ -3184,24 +3184,75 @@ elif page == "Agent Config":
     tab1, tab2, tab3 = st.tabs(["📊 Model Configurations", "🎨 Presets", "📝 Agent Prompts"])
 
     with tab1:
-        st.markdown("### Current Model Configurations")
-        st.caption("View and edit model settings for each agent")
+        st.markdown("### Model Configurations")
 
-        # Fetch OpenRouter models
-        with st.spinner("Loading OpenRouter models..."):
-            openrouter_models = get_openrouter_models()
+        # Fetch OpenRouter models (cached, no notification)
+        openrouter_models = get_openrouter_models()
 
-        if openrouter_models:
-            st.success(f"✅ Loaded {len(openrouter_models)} models from OpenRouter (alphabetized)")
+        # Configuration mode selector
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            config_mode = st.selectbox(
+                "Configuration Mode",
+                ["Use Preset", "Custom Configuration"],
+                help="Choose a preset or create custom configuration"
+            )
+
+        with col2:
+            if config_mode == "Use Preset":
+                preset_name = st.selectbox(
+                    "Select Preset",
+                    ["balanced", "creative", "precise", "cost_optimized", "premium",
+                     "balanced_nsfw", "creative_nsfw", "precise_nsfw", "cost_optimized_nsfw", "premium_nsfw"],
+                    help="Pre-configured model settings for common use cases"
+                )
+            else:
+                custom_name = st.text_input(
+                    "Configuration Name",
+                    value="my_custom_config",
+                    help="Name for your custom configuration"
+                )
+
+        with col3:
+            if st.button("💾 Save", help="Save configuration to session"):
+                st.session_state['saved_config'] = custom_name if config_mode == "Custom Configuration" else preset_name
+                st.toast("Configuration saved!")
+
+        st.markdown("---")
+
+        # Get configuration based on mode
+        if config_mode == "Use Preset":
+            st.info(f"📋 **Active Preset:** `{preset_name}`")
+            preset_overrides = ModelConfig.get_presets().get(preset_name, {})
+            active_config = ModelConfig.create(preset_overrides)
         else:
-            st.warning("⚠️ Could not load OpenRouter models. Using text input instead.")
+            st.info(f"🛠️ **Custom Configuration:** `{custom_name}`")
+            # Start with defaults for custom
+            active_config = ModelConfig.DEFAULTS.copy()
 
-        # Get current defaults
-        defaults = ModelConfig.DEFAULTS
+        st.caption("Expand each agent to view/modify its configuration")
 
         # Create expandable sections for each agent
-        for agent_name, config in defaults.items():
+        for agent_name, config in active_config.items():
             with st.expander(f"🤖 {agent_name.upper()} Agent", expanded=False):
+
+                # Show current active configuration at top
+                st.markdown("**Currently Active:**")
+                current_config = {
+                    "model": config.model,
+                    "temperature": config.temperature,
+                    "max_tokens": config.max_tokens or 2000,
+                }
+                if config.frequency_penalty:
+                    current_config["frequency_penalty"] = config.frequency_penalty
+                if config.presence_penalty:
+                    current_config["presence_penalty"] = config.presence_penalty
+
+                st.json(current_config)
+
+                st.markdown("---")
+                st.markdown("**Modify Settings:**")
+
                 col1, col2 = st.columns(2)
 
                 with col1:
@@ -3274,7 +3325,8 @@ elif page == "Agent Config":
                             help="Encourage new topics"
                         )
 
-                # Show configuration summary
+                # Show modified preview
+                st.markdown("**Modified Preview:**")
                 st.json({
                     "model": model,
                     "temperature": temperature,
@@ -3283,10 +3335,8 @@ elif page == "Agent Config":
                     "presence_penalty": pres_penalty if pres_penalty > 0 else None
                 })
 
-                # Save button
-                if st.button(f"💾 Save {agent_name.upper()} Config", key=f"save_{agent_name}"):
-                    st.success(f"✅ {agent_name} configuration saved!")
-                    st.info("Note: Configuration editing is for display only. To apply changes, modify utils/model_config.py directly.")
+        st.markdown("---")
+        st.info("💡 **Note:** To permanently save changes, modify `utils/model_config.py` directly. Use the Save button above to store your current selection in session.")
 
     with tab2:
         st.markdown("### Available Presets")
