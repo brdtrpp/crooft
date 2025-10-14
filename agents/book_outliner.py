@@ -234,7 +234,17 @@ Version: 1.0
         series = input_data.series
 
         # 1. Construct input for the LLM
-        chapters_per_book = self.requirements.get('chapters_per_book', 20)
+        # Support both single value (legacy) and range (new)
+        if 'chapters_per_book_range' in self.requirements:
+            # New format: pick a value within the range for this book
+            import random
+            min_chapters, max_chapters = self.requirements['chapters_per_book_range']
+            chapters_per_book = random.randint(min_chapters, max_chapters)
+            print(f"  Selected {chapters_per_book} chapters for Book {self.book_number} (range: {min_chapters}-{max_chapters})")
+        else:
+            # Legacy format: single value
+            chapters_per_book = self.requirements.get('chapters_per_book', 20)
+
         target_word_count = self.requirements.get('target_word_count', book.target_word_count)
 
         input_for_llm = {

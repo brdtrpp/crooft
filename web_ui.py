@@ -646,7 +646,7 @@ elif page == "New Project":
             target_audience = st.selectbox("Target Audience", ["adult", "young adult", "middle grade"])
             num_books = st.number_input("Number of Books", min_value=1, max_value=10, value=1)
             target_word_count = st.number_input("Target Word Count per Book", min_value=50000, max_value=200000, value=100000, step=10000)
-            chapters_per_book = st.number_input("Chapters per Book", min_value=5, max_value=30, value=15)
+            chapters_per_book_range = st.slider("Chapters per Book (range)", min_value=5, max_value=50, value=(20, 26), help="Each book will have a chapter count within this range")
 
         premise = st.text_area(
             "Series Premise",
@@ -689,7 +689,8 @@ elif page == "New Project":
                         )
 
                         # Store requirements in project metadata as custom fields
-                        project.metadata.project_id = f"{project_id}__{num_books}books_{chapters_per_book}ch_{target_word_count}w"
+                        chapters_range_str = f"{chapters_per_book_range[0]}-{chapters_per_book_range[1]}"
+                        project.metadata.project_id = f"{project_id}__{num_books}books_{chapters_range_str}ch_{target_word_count}w"
 
                         # Initialize pipeline
                         pipeline = FictionPipeline(
@@ -700,7 +701,7 @@ elif page == "New Project":
                             preset=preset,
                             requirements={
                                 "num_books": num_books,
-                                "chapters_per_book": chapters_per_book,
+                                "chapters_per_book_range": chapters_per_book_range,
                                 "target_word_count": target_word_count
                             }
                         )

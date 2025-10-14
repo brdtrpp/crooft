@@ -213,13 +213,20 @@ Notes:
         # 1. Construct input for the LLM with hard constraints
         num_books = self.requirements.get('num_books', len(input_data.series.books) if input_data.series.books else 1)
 
+        # Format chapters constraint - support both range and single value
+        if 'chapters_per_book_range' in self.requirements:
+            min_chapters, max_chapters = self.requirements['chapters_per_book_range']
+            chapters_constraint = f"{min_chapters}-{max_chapters}"
+        else:
+            chapters_constraint = self.requirements.get('chapters_per_book', 20)
+
         input_for_llm = {
             "raw_text": raw_text,
             "feedback": input_data.series.feedback or [],
             "constraints": {
                 "book_count": num_books,
                 "target_word_count_per_book": self.requirements.get('target_word_count', 100000),
-                "chapters_per_book": self.requirements.get('chapters_per_book', 20)
+                "chapters_per_book": chapters_constraint
             }
         }
         context = json.dumps(input_for_llm, indent=2)
