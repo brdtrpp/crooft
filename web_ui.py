@@ -3243,10 +3243,20 @@ elif page == "Agent Config":
                     "temperature": config.temperature,
                     "max_tokens": config.max_tokens or 2000,
                 }
+                if config.top_p:
+                    current_config["top_p"] = config.top_p
+                if config.top_k:
+                    current_config["top_k"] = config.top_k
                 if config.frequency_penalty:
                     current_config["frequency_penalty"] = config.frequency_penalty
                 if config.presence_penalty:
                     current_config["presence_penalty"] = config.presence_penalty
+                if config.repetition_penalty:
+                    current_config["repetition_penalty"] = config.repetition_penalty
+                if config.min_p:
+                    current_config["min_p"] = config.min_p
+                if config.seed:
+                    current_config["seed"] = config.seed
 
                 st.json(current_config)
 
@@ -3325,15 +3335,85 @@ elif page == "Agent Config":
                             help="Encourage new topics"
                         )
 
+                # Advanced parameters
+                with st.expander("⚙️ Advanced Parameters", expanded=False):
+                    col3a, col3b = st.columns(2)
+
+                    with col3a:
+                        top_p = st.slider(
+                            "Top P",
+                            min_value=0.0,
+                            max_value=1.0,
+                            value=config.top_p or 1.0,
+                            step=0.05,
+                            key=f"{agent_name}_top_p",
+                            help="Nucleus sampling - consider tokens with top_p probability mass"
+                        )
+
+                        top_k = st.number_input(
+                            "Top K",
+                            min_value=0,
+                            max_value=100,
+                            value=config.top_k or 0,
+                            step=1,
+                            key=f"{agent_name}_top_k",
+                            help="Consider only top K tokens (0 = disabled)"
+                        )
+
+                        min_p = st.slider(
+                            "Min P",
+                            min_value=0.0,
+                            max_value=1.0,
+                            value=config.min_p or 0.0,
+                            step=0.01,
+                            key=f"{agent_name}_min_p",
+                            help="Minimum probability threshold"
+                        )
+
+                    with col3b:
+                        rep_penalty = st.slider(
+                            "Repetition Penalty",
+                            min_value=0.0,
+                            max_value=2.0,
+                            value=config.repetition_penalty or 1.0,
+                            step=0.05,
+                            key=f"{agent_name}_rep_pen",
+                            help="Penalize repetition (1.0 = no penalty)"
+                        )
+
+                        seed = st.number_input(
+                            "Seed",
+                            min_value=0,
+                            max_value=999999,
+                            value=config.seed or 0,
+                            step=1,
+                            key=f"{agent_name}_seed",
+                            help="Random seed for reproducibility (0 = random)"
+                        )
+
                 # Show modified preview
                 st.markdown("**Modified Preview:**")
-                st.json({
+                modified_config = {
                     "model": model,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
-                    "frequency_penalty": freq_penalty if freq_penalty > 0 else None,
-                    "presence_penalty": pres_penalty if pres_penalty > 0 else None
-                })
+                }
+                if freq_penalty > 0:
+                    modified_config["frequency_penalty"] = freq_penalty
+                if pres_penalty > 0:
+                    modified_config["presence_penalty"] = pres_penalty
+                if top_p < 1.0:
+                    modified_config["top_p"] = top_p
+                if top_k > 0:
+                    modified_config["top_k"] = top_k
+                if rep_penalty != 1.0:
+                    modified_config["repetition_penalty"] = rep_penalty
+                if min_p > 0:
+                    modified_config["min_p"] = min_p
+                if seed > 0:
+                    modified_config["seed"] = seed
+
+                st.json(modified_config)
 
         st.markdown("---")
         st.info("💡 **Note:** To permanently save changes, modify `utils/model_config.py` directly. Use the Save button above to store your current selection in session.")

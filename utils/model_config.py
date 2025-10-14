@@ -12,8 +12,12 @@ class AgentModelConfig(BaseModel):
     temperature: float = 0.7
     max_tokens: Optional[int] = None
     top_p: Optional[float] = None
+    top_k: Optional[int] = None
     frequency_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
+    repetition_penalty: Optional[float] = None
+    min_p: Optional[float] = None
+    seed: Optional[int] = None
 
 
 class ModelConfig:
