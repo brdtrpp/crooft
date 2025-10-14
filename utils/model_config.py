@@ -64,6 +64,37 @@ class ModelConfig:
             model="anthropic/claude-3.5-sonnet",
             temperature=0.4,  # Moderate for consistency checking
             max_tokens=2000
+        ),
+        # Editor configurations
+        "line_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.4,  # Moderate for balanced edits
+            max_tokens=3000
+        ),
+        "scene_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.5,  # Moderate for structural analysis
+            max_tokens=4000
+        ),
+        "chapter_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.5,  # Moderate for pacing analysis
+            max_tokens=4000
+        ),
+        "book_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.4,  # Lower for consistency checks
+            max_tokens=5000
+        ),
+        "series_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.3,  # Low for continuity checking
+            max_tokens=6000
+        ),
+        "copy_editor": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.2,  # Very low for mechanical fixes
+            max_tokens=3000
         )
     }
 
