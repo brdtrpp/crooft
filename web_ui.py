@@ -369,7 +369,6 @@ elif page == "New Project":
         col1, col2 = st.columns(2)
 
         with col1:
-            project_id = st.text_input("Project ID", value=f"novel_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
             title = st.text_input("Series Title", placeholder="The Quantum Heist")
             # Genre selection with multi-select support
             all_genres = [
@@ -747,6 +746,17 @@ Leave blank to use default prose generation.""",
             else:
                 with st.spinner("Creating project..."):
                     try:
+                        # Generate project_id from title
+                        import re
+                        # Create slug from title
+                        slug = title.lower()
+                        slug = re.sub(r'[^\w\s-]', '', slug)  # Remove special chars
+                        slug = re.sub(r'[-\s]+', '_', slug)  # Replace spaces/hyphens with underscores
+                        slug = slug.strip('_')  # Remove leading/trailing underscores
+                        # Add short date for uniqueness
+                        date_str = datetime.now().strftime('%Y%m%d')
+                        project_id = f"{slug}_{date_str}"
+
                         # Create project
                         project = FictionProject(
                             metadata=Metadata(
