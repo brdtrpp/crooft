@@ -145,14 +145,8 @@ st.markdown("""
         margin-top: 0.25rem;
     }
 
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-    }
-
     /* Sidebar selectbox - make it more prominent */
     section[data-testid="stSidebar"] .stSelectbox {
-        background-color: white;
         border-radius: 0.5rem;
         padding: 0.25rem;
     }
@@ -704,7 +698,7 @@ elif page == "New Project":
 
         with col2:
             target_audience = st.selectbox("Target Audience", ["adult", "young adult", "middle grade"])
-            num_books = st.number_input("Number of Books", min_value=1, max_value=10, value=1)
+            num_books = st.number_input("Number of Books", min_value=1, max_value=25, value=1)
             target_word_count = st.number_input("Target Word Count per Book", min_value=50000, max_value=200000, value=100000, step=10000)
             chapters_per_book_range = st.slider("Chapters per Book (range)", min_value=5, max_value=50, value=(20, 26), help="Each book will have a chapter count within this range")
 
