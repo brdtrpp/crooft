@@ -144,6 +144,38 @@ st.markdown("""
         color: #6c757d;
         margin-top: 0.25rem;
     }
+
+    /* Sidebar styling */
+    section[data-testid="stSidebar"] {
+        background-color: #f8f9fa;
+    }
+
+    /* Sidebar selectbox - make it more prominent */
+    section[data-testid="stSidebar"] .stSelectbox {
+        background-color: white;
+        border-radius: 0.5rem;
+        padding: 0.25rem;
+    }
+
+    /* Cleaner section dividers */
+    section[data-testid="stSidebar"] hr {
+        margin: 1rem 0;
+        border-color: #dee2e6;
+    }
+
+    /* Sidebar headings */
+    section[data-testid="stSidebar"] h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    section[data-testid="stSidebar"] h3 {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -181,9 +213,11 @@ with st.sidebar:
     st.markdown("## 📚 Fiction Pipeline")
     st.markdown("---")
 
-    page = st.radio(
-        "Navigation",
-        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Prose Reader", "Editing Suite", "Chat", "Settings", "Analytics", "Export"]
+    # Navigation with selectbox (cleaner than radio buttons)
+    page = st.selectbox(
+        "📍 Navigation",
+        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Prose Reader", "Editing Suite", "Chat", "Settings", "Analytics", "Export"],
+        label_visibility="visible"
     )
 
     st.markdown("---")
