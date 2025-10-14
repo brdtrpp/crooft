@@ -688,24 +688,29 @@ elif page == "New Project":
             st.session_state.temp_style_guide = ""
 
         # Source selection with cleaner UI
-        col_load1, col_load2, col_load3 = st.columns(3)
+        col_load1, col_load2 = st.columns(2)
 
         with col_load1:
             import os
             style_guides_dir = "style_guides"
-            preset_options = ["-- Select Preset --"]
+            preset_options = ["-- None --"]
             if os.path.exists(style_guides_dir):
                 available_guides = [f for f in os.listdir(style_guides_dir) if f.endswith('.txt')]
                 preset_options.extend(available_guides)
 
             selected_preset = st.selectbox(
-                "Load Preset",
+                "Load Preset Style Guide",
                 preset_options,
                 key="preset_selector",
-                help="Load a pre-defined style guide"
+                help="Select a pre-defined style guide, or None to clear"
             )
 
-            if selected_preset != "-- Select Preset --":
+            if selected_preset == "-- None --":
+                # User selected "None" to clear/skip style guide
+                if st.session_state.temp_style_guide:
+                    st.session_state.temp_style_guide = ""
+                    st.info("Style guide cleared")
+            elif selected_preset:
                 guide_path = os.path.join(style_guides_dir, selected_preset)
                 try:
                     with open(guide_path, 'r', encoding='utf-8') as f:
@@ -716,19 +721,14 @@ elif page == "New Project":
 
         with col_load2:
             uploaded_style = st.file_uploader(
-                "Upload File",
+                "Or Upload Custom File",
                 type=['txt', 'md'],
                 key="new_project_style_upload",
-                help="Upload your own style guide"
+                help="Upload your own .txt or .md style guide"
             )
             if uploaded_style:
                 st.session_state.temp_style_guide = uploaded_style.read().decode('utf-8')
                 st.success(f"✅ Loaded {uploaded_style.name}")
-
-        with col_load3:
-            if st.button("Clear", use_container_width=True, help="Clear the style guide"):
-                st.session_state.temp_style_guide = ""
-                st.rerun()
 
         # Text area for viewing/editing style guide
         style_guide = st.text_area(
