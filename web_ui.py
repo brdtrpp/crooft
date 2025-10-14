@@ -147,7 +147,7 @@ st.markdown("""
 
     /* Sidebar styling */
     section[data-testid="stSidebar"] {
-        background-color: #f8f9fa;
+        background-color: #ffffff;
     }
 
     /* Sidebar selectbox - make it more prominent */
@@ -715,74 +715,27 @@ elif page == "New Project":
         )
 
         # Style Guide Selection
-        st.markdown("### 📝 Prose Style Guide")
+        st.markdown("### 📝 Prose Style Guide (Optional)")
 
-        # Initialize style guide content in session state if not present
-        if 'temp_style_guide' not in st.session_state:
-            st.session_state.temp_style_guide = ""
-
-        # Source selection with cleaner UI
-        col_load1, col_load2 = st.columns(2)
-
-        with col_load1:
-            import os
-            style_guides_dir = "style_guides"
-            preset_options = ["-- None --"]
-            if os.path.exists(style_guides_dir):
-                available_guides = [f for f in os.listdir(style_guides_dir) if f.endswith('.txt')]
-                preset_options.extend(available_guides)
-
-            selected_preset = st.selectbox(
-                "Load Preset Style Guide",
-                preset_options,
-                key="preset_selector",
-                help="Select a pre-defined style guide, or None to clear"
-            )
-
-            if selected_preset == "-- None --":
-                # User selected "None" to clear/skip style guide
-                if st.session_state.temp_style_guide:
-                    st.session_state.temp_style_guide = ""
-                    st.info("Style guide cleared")
-            elif selected_preset:
-                guide_path = os.path.join(style_guides_dir, selected_preset)
-                try:
-                    with open(guide_path, 'r', encoding='utf-8') as f:
-                        st.session_state.temp_style_guide = f.read()
-                    st.success(f"✅ Loaded {selected_preset}")
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-        with col_load2:
-            uploaded_style = st.file_uploader(
-                "Or Upload Custom File",
-                type=['txt', 'md'],
-                key="new_project_style_upload",
-                help="Upload your own .txt or .md style guide"
-            )
-            if uploaded_style:
-                st.session_state.temp_style_guide = uploaded_style.read().decode('utf-8')
-                st.success(f"✅ Loaded {uploaded_style.name}")
-
-        # Text area for viewing/editing style guide
+        # Simple text area for copy/paste
         style_guide = st.text_area(
-            "Style Guide Content",
-            value=st.session_state.temp_style_guide,
+            "Paste or type your style guide",
+            value="",
             height=200,
-            placeholder="""Enter your style guide here, or load a preset/file above.
+            placeholder="""Paste your style guide here, or type directly.
 
 Examples:
 - Write in the style of Brandon Sanderson with clear magic system explanations
 - Use short, punchy sentences for action scenes
 - Include vivid sensory details, especially smell and touch
 - Favor showing over telling
-- Character dialogue should be sharp and witty""",
+- Character dialogue should be sharp and witty
+- Avoid adverbs in dialogue tags
+
+Leave blank to use default prose generation.""",
             help="Define the prose style for your series. This will be used throughout generation.",
             key="style_guide_text_input"
         )
-
-        # Update session state when text area changes
-        st.session_state.temp_style_guide = style_guide
 
         # Show word count if content exists
         if style_guide.strip():
@@ -846,10 +799,6 @@ Examples:
 
                         st.session_state.project = project
                         st.session_state.pipeline = pipeline
-
-                        # Clear temporary style guide state
-                        if 'temp_style_guide' in st.session_state:
-                            del st.session_state.temp_style_guide
 
                         st.success(f"✅ Project created: {project_id}")
                         st.success(f"✅ Project saved to: output/{project.metadata.project_id}_state.json")
