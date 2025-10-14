@@ -3259,45 +3259,74 @@ elif page == "Agent Config":
 
     with tab3:
         st.markdown("### Agent Prompts & Instructions")
-        st.caption("View the system prompts used by each agent")
+        st.caption("View the system prompts and capabilities of each agent")
 
-        # Import all agent classes
+        # Import all pipeline agent classes
         from agents.series_refiner import SeriesRefinerAgent
         from agents.book_outliner import BookOutlinerAgent
         from agents.chapter_developer import ChapterDeveloperAgent
         from agents.scene_developer import SceneDeveloperAgent
+        from agents.beat_developer import BeatDeveloperAgent
         from agents.prose_generator import ProseGeneratorAgent
+        from agents.lore_master import LoreMasterAgent
         from agents.qa_agent import QAAgent
-        from agents.lore_master import LoreMaster
+        from agents.consistency_validator import ConsistencyValidatorAgent
+        from agents.developmental_editor import DevelopmentalEditorAgent
+        from agents.story_analyst import StoryAnalystAgent
 
-        agents_map = {
+        # Import editor suite agents
+        from agents.editors.line_editor import LineEditor
+        from agents.editors.scene_editor import SceneEditor
+        from agents.editors.chapter_editor import ChapterEditor
+        from agents.editors.book_editor import BookEditor
+        from agents.editors.series_editor import SeriesEditor
+        from agents.editors.copy_editor import CopyEditor
+
+        # Mock LLM for instantiation
+        class MockLLM:
+            pass
+
+        # Pipeline agents (have get_prompt() method)
+        pipeline_agents = {
             "Series Refiner": SeriesRefinerAgent,
             "Book Outliner": BookOutlinerAgent,
             "Chapter Developer": ChapterDeveloperAgent,
             "Scene Developer": SceneDeveloperAgent,
+            "Beat Developer": BeatDeveloperAgent,
             "Prose Generator": ProseGeneratorAgent,
+            "Lore Master": LoreMasterAgent,
             "QA Agent": QAAgent,
-            "Lore Master": LoreMaster
+            "Consistency Validator": ConsistencyValidatorAgent,
+            "Developmental Editor": DevelopmentalEditorAgent,
+            "Story Analyst": StoryAnalystAgent,
         }
 
-        for agent_name, agent_class in agents_map.items():
+        # Editing suite agents (dynamic prompts, show capabilities)
+        editing_agents = {
+            "Line Editor": (LineEditor, "Sentence-level editing for polish, clarity, and style"),
+            "Scene Editor": (SceneEditor, "Scene-level structural and narrative editing"),
+            "Chapter Editor": (ChapterEditor, "Chapter-level pacing and structure editing"),
+            "Book Editor": (BookEditor, "Book-level arc and consistency editing"),
+            "Series Editor": (SeriesEditor, "Series-level continuity and escalation editing"),
+            "Copy Editor": (CopyEditor, "Copy editing for grammar, style, and formatting"),
+        }
+
+        # Display pipeline agents
+        st.markdown("### 🔧 Pipeline Agents")
+        st.caption("Core content generation agents with static prompts")
+
+        for agent_name, agent_class in pipeline_agents.items():
             with st.expander(f"📜 {agent_name}", expanded=False):
                 try:
-                    # Create a temporary instance to get the prompt
-                    # Use a mock LLM since we just need the prompt
-                    class MockLLM:
-                        pass
-
                     temp_agent = agent_class(MockLLM())
                     prompt = temp_agent.get_prompt()
 
-                    # Display prompt
                     st.markdown(f"**System Prompt for {agent_name}:**")
                     st.text_area(
                         "Prompt",
                         value=prompt,
                         height=400,
-                        key=f"prompt_{agent_name}",
+                        key=f"prompt_pipeline_{agent_name}",
                         help="This is the system prompt sent to the LLM"
                     )
 
@@ -3307,7 +3336,34 @@ elif page == "Agent Config":
                     st.error(f"Could not load prompt: {e}")
 
         st.markdown("---")
-        st.info("💡 **Note:** To edit prompts, modify the `get_prompt()` method in each agent's Python file located in the `agents/` directory.")
+
+        # Display editing suite agents
+        st.markdown("### ✏️ Editing Suite Agents")
+        st.caption("Advanced editing agents with dynamic, context-aware prompts")
+
+        for agent_name, (agent_class, description) in editing_agents.items():
+            with st.expander(f"✏️ {agent_name}", expanded=False):
+                try:
+                    st.markdown(f"**{agent_name}**")
+                    st.info(description)
+
+                    # Show docstring
+                    if agent_class.__doc__:
+                        st.markdown("**Capabilities:**")
+                        st.code(agent_class.__doc__.strip(), language="text")
+
+                    # Show methods
+                    st.markdown("**Methods:**")
+                    st.markdown("- `analyze()`: Analyzes content and returns edit suggestions")
+                    st.markdown("- `apply_edit()`: Applies an edit suggestion to the project")
+
+                    st.caption("💡 These agents build prompts dynamically based on context, style guide, and scope")
+
+                except Exception as e:
+                    st.error(f"Could not load agent info: {e}")
+
+        st.markdown("---")
+        st.info("💡 **Note:** To edit prompts, modify the `get_prompt()` method in each pipeline agent's file or the `analyze()` method in each editor's file. All agent files are located in the `agents/` directory.")
 
 elif page == "Analytics":
     st.markdown('<p class="main-header">Project Analytics</p>', unsafe_allow_html=True)
