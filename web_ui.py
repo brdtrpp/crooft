@@ -3152,6 +3152,33 @@ elif page == "Agent Config":
     # Import necessary modules
     from utils.model_config import ModelConfig, AgentModelConfig
     import inspect
+    import requests
+
+    # Function to fetch OpenRouter models
+    @st.cache_data(ttl=3600)  # Cache for 1 hour
+    def get_openrouter_models():
+        """Fetch available models from OpenRouter API"""
+        try:
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                return []
+
+            response = requests.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                models = response.json().get("data", [])
+                # Extract model IDs and sort alphabetically
+                model_ids = sorted([m.get("id", "") for m in models if m.get("id")])
+                return model_ids
+            else:
+                return []
+        except Exception as e:
+            print(f"Error fetching OpenRouter models: {e}")
+            return []
 
     # Tabs for different configuration aspects
     tab1, tab2, tab3 = st.tabs(["📊 Model Configurations", "🎨 Presets", "📝 Agent Prompts"])
@@ -3159,6 +3186,15 @@ elif page == "Agent Config":
     with tab1:
         st.markdown("### Current Model Configurations")
         st.caption("View and edit model settings for each agent")
+
+        # Fetch OpenRouter models
+        with st.spinner("Loading OpenRouter models..."):
+            openrouter_models = get_openrouter_models()
+
+        if openrouter_models:
+            st.success(f"✅ Loaded {len(openrouter_models)} models from OpenRouter (alphabetized)")
+        else:
+            st.warning("⚠️ Could not load OpenRouter models. Using text input instead.")
 
         # Get current defaults
         defaults = ModelConfig.DEFAULTS
@@ -3170,12 +3206,29 @@ elif page == "Agent Config":
 
                 with col1:
                     st.markdown("**Model Settings**")
-                    model = st.text_input(
-                        "Model",
-                        value=config.model,
-                        key=f"{agent_name}_model",
-                        help="OpenRouter model name (e.g., anthropic/claude-3.5-sonnet)"
-                    )
+
+                    # Use selectbox if models loaded, otherwise text input
+                    if openrouter_models:
+                        # Find current model in list or use first as default
+                        try:
+                            current_index = openrouter_models.index(config.model)
+                        except (ValueError, AttributeError):
+                            current_index = 0
+
+                        model = st.selectbox(
+                            "Model",
+                            options=openrouter_models,
+                            index=current_index,
+                            key=f"{agent_name}_model",
+                            help="Select from available OpenRouter models (alphabetically sorted)"
+                        )
+                    else:
+                        model = st.text_input(
+                            "Model",
+                            value=config.model,
+                            key=f"{agent_name}_model",
+                            help="OpenRouter model name (e.g., anthropic/claude-3.5-sonnet)"
+                        )
 
                     temperature = st.slider(
                         "Temperature",
