@@ -249,6 +249,7 @@ class Series(BaseModel):
     books: List[Book] = []
     raw_text: Optional[str] = None
     feedback: Optional[List[Dict[str, Any]]] = None
+    style_guide: Optional[str] = None  # Prose style guide for the series
 
 
 class RevisionTask(BaseModel):

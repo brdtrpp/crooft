@@ -654,6 +654,48 @@ elif page == "New Project":
             height=100
         )
 
+        # Style Guide Selection
+        st.markdown("### 📝 Prose Style Guide")
+        style_guide_option = st.radio(
+            "Style Guide",
+            ["None", "Upload Custom", "Use Preset"],
+            horizontal=True,
+            help="Choose how to set the prose style for this series"
+        )
+
+        style_guide = None
+        if style_guide_option == "Upload Custom":
+            uploaded_style = st.file_uploader(
+                "Upload Style Guide (.txt, .md)",
+                type=['txt', 'md'],
+                key="new_project_style_upload"
+            )
+            if uploaded_style:
+                style_guide = uploaded_style.read().decode('utf-8')
+                st.success(f"✅ Loaded style guide from {uploaded_style.name} ({len(style_guide.split())} words)")
+        elif style_guide_option == "Use Preset":
+            import os
+            style_guides_dir = "style_guides"
+            if os.path.exists(style_guides_dir):
+                available_guides = [f for f in os.listdir(style_guides_dir) if f.endswith('.txt')]
+                if available_guides:
+                    selected_guide = st.selectbox(
+                        "Select Preset Style Guide",
+                        available_guides,
+                        help="Pre-defined style guides for different genres"
+                    )
+                    guide_path = os.path.join(style_guides_dir, selected_guide)
+                    try:
+                        with open(guide_path, 'r', encoding='utf-8') as f:
+                            style_guide = f.read()
+                        st.success(f"✅ Loaded {selected_guide} ({len(style_guide.split())} words)")
+                    except Exception as e:
+                        st.error(f"Error loading style guide: {e}")
+                else:
+                    st.warning("No preset style guides found in style_guides/")
+            else:
+                st.warning("Style guides directory not found")
+
         submit = st.form_submit_button("🚀 Create Project", type="primary")
 
         if submit:
@@ -684,7 +726,8 @@ elif page == "New Project":
                                 themes=[],
                                 persistent_threads=[],
                                 lore=Lore(),
-                                books=[]
+                                books=[],
+                                style_guide=style_guide
                             )
                         )
 
@@ -1660,54 +1703,63 @@ elif page == "Step-by-Step":
 
             # Style Guide for Prose Generator
             st.markdown("---")
-            with st.expander("📝 Prose Style Guide (Optional)", expanded=False):
-                st.markdown("Provide specific style instructions for the prose generator:")
+            with st.expander("📝 Prose Style Guide", expanded=False):
+                if project.series.style_guide:
+                    st.info("💡 Style guide was set during project creation. You can view and edit it below.")
 
-                # File upload option
-                uploaded_file = st.file_uploader(
-                    "Upload Style Guide (.txt, .md)",
-                    type=['txt', 'md'],
-                    key="style_guide_uploader"
-                )
+                    # Show current style guide
+                    current_style = st.text_area(
+                        "Current Style Guide",
+                        value=project.series.style_guide,
+                        height=200,
+                        key="view_edit_style_guide",
+                        help="Edit the style guide for this project"
+                    )
 
-                if uploaded_file:
-                    style_guide_from_file = uploaded_file.read().decode('utf-8')
-                    st.session_state['prose_style_guide'] = style_guide_from_file
-                    st.success(f"✅ Loaded style guide from {uploaded_file.name}")
+                    # Update button
+                    col1, col2 = st.columns([1, 4])
+                    with col1:
+                        if st.button("💾 Update Style Guide", use_container_width=True):
+                            project.series.style_guide = current_style
+                            pipeline.state_manager.save_state(project, "style_guide_updated")
+                            st.success("✅ Style guide updated!")
+                    with col2:
+                        st.download_button(
+                            "📥 Download Style Guide",
+                            data=current_style,
+                            file_name=f"style_guide_{project.metadata.project_id}.txt",
+                            mime="text/plain",
+                            use_container_width=True
+                        )
 
-                style_guide = st.text_area(
-                    "Style Guide",
-                    value=st.session_state.get('prose_style_guide', ''),
-                    height=200,
-                    placeholder="""Examples:
+                    st.success(f"✅ Style guide active ({len(project.series.style_guide.split())} words)")
+                else:
+                    st.warning("⚠️ No style guide set for this project.")
+                    st.info("💡 You can set a style guide during project creation, or add one here:")
+
+                    # Allow adding a style guide to existing project
+                    new_style_guide = st.text_area(
+                        "Add Style Guide",
+                        height=200,
+                        placeholder="""Examples:
 - Write in the style of Brandon Sanderson with clear magic system explanations
 - Use short, punchy sentences for action scenes
 - Include vivid sensory details, especially smell and touch
 - Favor showing over telling
 - Use present tense for flashbacks
 - Character dialogue should be sharp and witty
-- Avoid adverbs in dialogue tags
+- Avoid adverbs in dialogue tags""",
+                        key="add_style_guide_input"
+                    )
 
-Or upload a .txt/.md file above with your style guide.""",
-                    key="style_guide_input"
-                )
-                st.session_state['prose_style_guide'] = style_guide
-
-                # Download current style guide
-                if style_guide.strip():
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.success(f"✅ Style guide active ({len(style_guide.split())} words)")
-                    with col2:
-                        st.download_button(
-                            "💾 Save",
-                            data=style_guide,
-                            file_name=f"style_guide_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-                else:
-                    st.info("💡 No style guide set - using default prose generation")
+                    if st.button("💾 Add Style Guide to Project"):
+                        if new_style_guide.strip():
+                            project.series.style_guide = new_style_guide
+                            pipeline.state_manager.save_state(project, "style_guide_added")
+                            st.success("✅ Style guide added to project!")
+                            st.rerun()
+                        else:
+                            st.error("Please enter a style guide first")
 
             # Auto-QA toggle
             st.markdown("---")
@@ -1876,8 +1928,8 @@ Or upload a .txt/.md file above with your style guide.""",
                                                     status_container.success(f"✅ Completed developing {total} scenes!")
 
                                             elif agent['key'] == 'prose':
-                                                # Get style guide from session state
-                                                prose_style_guide = st.session_state.get('prose_style_guide', '')
+                                                # Get style guide from project (falls back to session state for backward compatibility)
+                                                prose_style_guide = project.series.style_guide or st.session_state.get('prose_style_guide', '')
 
                                                 # Process ALL beats that need prose
                                                 beats_to_generate = []
@@ -2247,9 +2299,10 @@ elif page == "Editing Suite":
             with st.expander("📝 Style Guide (Optional)", expanded=False):
                 edit_style_guide = st.text_area(
                     "Style Guide for Editing",
-                    value=st.session_state.get('prose_style_guide', ''),
+                    value=project.series.style_guide or '',
                     height=150,
-                    placeholder="Provide specific style guidelines for the editor to follow..."
+                    placeholder="Provide specific style guidelines for the editor to follow...",
+                    help="Using the style guide set for this project"
                 )
 
             st.markdown("---")
