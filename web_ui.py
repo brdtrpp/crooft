@@ -3186,51 +3186,52 @@ elif page == "Agent Config":
     with tab1:
         st.markdown("### Model Configurations")
 
+        # Initialize custom configs in session state
+        if 'custom_configs' not in st.session_state:
+            st.session_state.custom_configs = {}
+
         # Fetch OpenRouter models (cached, no notification)
         openrouter_models = get_openrouter_models()
 
-        # Configuration mode selector
-        col1, col2, col3 = st.columns([2, 2, 1])
+        # Get all available configs (presets + custom)
+        builtin_presets = list(ModelConfig.get_presets().keys())
+        custom_config_names = list(st.session_state.custom_configs.keys())
+        all_configs = builtin_presets + custom_config_names
+
+        # Configuration selector
+        col1, col2 = st.columns([3, 1])
         with col1:
-            config_mode = st.selectbox(
-                "Configuration Mode",
-                ["Use Preset", "Custom Configuration"],
-                help="Choose a preset or create custom configuration"
+            selected_config = st.selectbox(
+                "Select Configuration",
+                all_configs,
+                format_func=lambda x: f"🎨 {x}" if x in builtin_presets else f"🛠️ {x} (Custom)",
+                help="Choose a preset or your saved custom configuration"
             )
 
         with col2:
-            if config_mode == "Use Preset":
-                preset_name = st.selectbox(
-                    "Select Preset",
-                    ["balanced", "creative", "precise", "cost_optimized", "premium",
-                     "balanced_nsfw", "creative_nsfw", "precise_nsfw", "cost_optimized_nsfw", "premium_nsfw"],
-                    help="Pre-configured model settings for common use cases"
-                )
-            else:
-                custom_name = st.text_input(
-                    "Configuration Name",
-                    value="my_custom_config",
-                    help="Name for your custom configuration"
-                )
-
-        with col3:
-            if st.button("💾 Save", help="Save configuration to session"):
-                st.session_state['saved_config'] = custom_name if config_mode == "Custom Configuration" else preset_name
-                st.toast("Configuration saved!")
+            # Show delete button for custom configs
+            if selected_config in custom_config_names:
+                if st.button("🗑️ Delete", help="Delete this custom configuration"):
+                    del st.session_state.custom_configs[selected_config]
+                    st.rerun()
 
         st.markdown("---")
 
-        # Get configuration based on mode
-        if config_mode == "Use Preset":
-            st.info(f"📋 **Active Preset:** `{preset_name}`")
-            preset_overrides = ModelConfig.get_presets().get(preset_name, {})
+        # Load the selected configuration
+        if selected_config in builtin_presets:
+            st.info(f"📋 **Built-in Preset:** `{selected_config}`")
+            preset_overrides = ModelConfig.get_presets().get(selected_config, {})
             active_config = ModelConfig.create(preset_overrides)
+            is_custom = False
         else:
-            st.info(f"🛠️ **Custom Configuration:** `{custom_name}`")
-            # Start with defaults for custom
-            active_config = ModelConfig.DEFAULTS.copy()
+            st.info(f"🛠️ **Custom Configuration:** `{selected_config}`")
+            active_config = st.session_state.custom_configs[selected_config]
+            is_custom = True
 
         st.caption("Expand each agent to view/modify its configuration")
+
+        # Store modified values for saving
+        all_modified_configs = {}
 
         # Create expandable sections for each agent
         for agent_name, config in active_config.items():
@@ -3415,8 +3416,50 @@ elif page == "Agent Config":
 
                 st.json(modified_config)
 
+                # Store modified config for this agent
+                all_modified_configs[agent_name] = {
+                    "model": model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "frequency_penalty": freq_penalty if freq_penalty > 0 else None,
+                    "presence_penalty": pres_penalty if pres_penalty > 0 else None,
+                    "top_p": top_p if top_p < 1.0 else None,
+                    "top_k": top_k if top_k > 0 else None,
+                    "repetition_penalty": rep_penalty if rep_penalty != 1.0 else None,
+                    "min_p": min_p if min_p > 0 else None,
+                    "seed": seed if seed > 0 else None,
+                }
+
         st.markdown("---")
-        st.info("💡 **Note:** To permanently save changes, modify `utils/model_config.py` directly. Use the Save button above to store your current selection in session.")
+
+        # Save as new custom configuration
+        st.markdown("### 💾 Save Configuration")
+        col_save1, col_save2 = st.columns([3, 1])
+
+        with col_save1:
+            new_config_name = st.text_input(
+                "Save current settings as:",
+                value=f"{selected_config}_modified" if not is_custom else selected_config,
+                help="Enter a name for this configuration"
+            )
+
+        with col_save2:
+            st.markdown("<br>", unsafe_allow_html=True)  # Spacer for alignment
+            if st.button("💾 Save Custom Config", type="primary"):
+                # Build the custom config from modified values
+                custom_config_dict = {}
+                for agent_name in active_config.keys():
+                    agent_config = all_modified_configs.get(agent_name, {})
+                    # Create AgentModelConfig from the values
+                    custom_config_dict[agent_name] = AgentModelConfig(**{k: v for k, v in agent_config.items() if v is not None})
+
+                # Save to session state
+                st.session_state.custom_configs[new_config_name] = custom_config_dict
+                st.success(f"✅ Saved as `{new_config_name}`")
+                st.toast(f"Configuration '{new_config_name}' saved! Select it from the dropdown above.")
+
+        st.markdown("---")
+        st.info("💡 **Note:** Custom configs are saved in your browser session. To make permanent changes, modify `utils/model_config.py` directly.")
 
     with tab2:
         st.markdown("### Available Presets")
