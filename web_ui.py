@@ -3243,184 +3243,184 @@ elif page == "Agent Config":
             for agent_name, config in pipeline_agents.items():
                 with st.expander(f"🤖 {agent_name.upper()} Agent", expanded=False):
 
-                # Show current active configuration at top
-                st.markdown("**Currently Active:**")
-                current_config = {
-                    "model": config.model,
-                    "temperature": config.temperature,
-                    "max_tokens": config.max_tokens or 2000,
-                }
-                if config.top_p:
-                    current_config["top_p"] = config.top_p
-                if config.top_k:
-                    current_config["top_k"] = config.top_k
-                if config.frequency_penalty:
-                    current_config["frequency_penalty"] = config.frequency_penalty
-                if config.presence_penalty:
-                    current_config["presence_penalty"] = config.presence_penalty
-                if config.repetition_penalty:
-                    current_config["repetition_penalty"] = config.repetition_penalty
-                if config.min_p:
-                    current_config["min_p"] = config.min_p
-                if config.seed:
-                    current_config["seed"] = config.seed
+                    # Show current active configuration at top
+                    st.markdown("**Currently Active:**")
+                    current_config = {
+                        "model": config.model,
+                        "temperature": config.temperature,
+                        "max_tokens": config.max_tokens or 2000,
+                    }
+                    if config.top_p:
+                        current_config["top_p"] = config.top_p
+                    if config.top_k:
+                        current_config["top_k"] = config.top_k
+                    if config.frequency_penalty:
+                        current_config["frequency_penalty"] = config.frequency_penalty
+                    if config.presence_penalty:
+                        current_config["presence_penalty"] = config.presence_penalty
+                    if config.repetition_penalty:
+                        current_config["repetition_penalty"] = config.repetition_penalty
+                    if config.min_p:
+                        current_config["min_p"] = config.min_p
+                    if config.seed:
+                        current_config["seed"] = config.seed
 
-                st.json(current_config)
+                    st.json(current_config)
 
-                st.markdown("---")
-                st.markdown("**Modify Settings:**")
+                    st.markdown("---")
+                    st.markdown("**Modify Settings:**")
 
-                col1, col2 = st.columns(2)
+                    col1, col2 = st.columns(2)
 
-                with col1:
-                    st.markdown("**Model Settings**")
+                    with col1:
+                        st.markdown("**Model Settings**")
 
-                    # Use selectbox if models loaded, otherwise text input
-                    if openrouter_models:
-                        # Find current model in list or use first as default
-                        try:
-                            current_index = openrouter_models.index(config.model)
-                        except (ValueError, AttributeError):
-                            current_index = 0
+                        # Use selectbox if models loaded, otherwise text input
+                        if openrouter_models:
+                            # Find current model in list or use first as default
+                            try:
+                                current_index = openrouter_models.index(config.model)
+                            except (ValueError, AttributeError):
+                                current_index = 0
 
-                        model = st.selectbox(
-                            "Model",
-                            options=openrouter_models,
-                            index=current_index,
-                            key=f"{agent_name}_model",
-                            help="Select from available OpenRouter models (alphabetically sorted)"
-                        )
-                    else:
-                        model = st.text_input(
-                            "Model",
-                            value=config.model,
-                            key=f"{agent_name}_model",
-                            help="OpenRouter model name (e.g., anthropic/claude-3.5-sonnet)"
-                        )
+                            model = st.selectbox(
+                                "Model",
+                                options=openrouter_models,
+                                index=current_index,
+                                key=f"{agent_name}_model",
+                                help="Select from available OpenRouter models (alphabetically sorted)"
+                            )
+                        else:
+                            model = st.text_input(
+                                "Model",
+                                value=config.model,
+                                key=f"{agent_name}_model",
+                                help="OpenRouter model name (e.g., anthropic/claude-3.5-sonnet)"
+                            )
 
-                    temperature = st.slider(
-                        "Temperature",
-                        min_value=0.0,
-                        max_value=1.0,
-                        value=config.temperature,
-                        step=0.05,
-                        key=f"{agent_name}_temp",
-                        help="Higher = more creative, Lower = more deterministic"
-                    )
-
-                with col2:
-                    st.markdown("**Token & Penalty Settings**")
-                    max_tokens = st.number_input(
-                        "Max Tokens",
-                        min_value=500,
-                        max_value=32000,
-                        value=config.max_tokens or 2000,
-                        step=500,
-                        key=f"{agent_name}_tokens",
-                        help="Maximum tokens to generate"
-                    )
-
-                    col2a, col2b = st.columns(2)
-                    with col2a:
-                        freq_penalty = st.number_input(
-                            "Frequency Penalty",
-                            min_value=0.0,
-                            max_value=2.0,
-                            value=config.frequency_penalty or 0.0,
-                            step=0.1,
-                            key=f"{agent_name}_freq",
-                            help="Reduce repetition"
-                        )
-                    with col2b:
-                        pres_penalty = st.number_input(
-                            "Presence Penalty",
-                            min_value=0.0,
-                            max_value=2.0,
-                            value=config.presence_penalty or 0.0,
-                            step=0.1,
-                            key=f"{agent_name}_pres",
-                            help="Encourage new topics"
-                        )
-
-                # Advanced parameters
-                with st.expander("⚙️ Advanced Parameters", expanded=False):
-                    col3a, col3b = st.columns(2)
-
-                    with col3a:
-                        top_p = st.slider(
-                            "Top P",
+                        temperature = st.slider(
+                            "Temperature",
                             min_value=0.0,
                             max_value=1.0,
-                            value=config.top_p or 1.0,
+                            value=config.temperature,
                             step=0.05,
-                            key=f"{agent_name}_top_p",
-                            help="Nucleus sampling - consider tokens with top_p probability mass"
+                            key=f"{agent_name}_temp",
+                            help="Higher = more creative, Lower = more deterministic"
                         )
 
-                        top_k = st.number_input(
-                            "Top K",
-                            min_value=0,
-                            max_value=100,
-                            value=config.top_k or 0,
-                            step=1,
-                            key=f"{agent_name}_top_k",
-                            help="Consider only top K tokens (0 = disabled)"
+                    with col2:
+                        st.markdown("**Token & Penalty Settings**")
+                        max_tokens = st.number_input(
+                            "Max Tokens",
+                            min_value=500,
+                            max_value=32000,
+                            value=config.max_tokens or 2000,
+                            step=500,
+                            key=f"{agent_name}_tokens",
+                            help="Maximum tokens to generate"
                         )
 
-                        min_p = st.slider(
-                            "Min P",
-                            min_value=0.0,
-                            max_value=1.0,
-                            value=config.min_p or 0.0,
-                            step=0.01,
-                            key=f"{agent_name}_min_p",
-                            help="Minimum probability threshold"
-                        )
+                        col2a, col2b = st.columns(2)
+                        with col2a:
+                            freq_penalty = st.number_input(
+                                "Frequency Penalty",
+                                min_value=0.0,
+                                max_value=2.0,
+                                value=config.frequency_penalty or 0.0,
+                                step=0.1,
+                                key=f"{agent_name}_freq",
+                                help="Reduce repetition"
+                            )
+                        with col2b:
+                            pres_penalty = st.number_input(
+                                "Presence Penalty",
+                                min_value=0.0,
+                                max_value=2.0,
+                                value=config.presence_penalty or 0.0,
+                                step=0.1,
+                                key=f"{agent_name}_pres",
+                                help="Encourage new topics"
+                            )
 
-                    with col3b:
-                        rep_penalty = st.slider(
-                            "Repetition Penalty",
-                            min_value=0.0,
-                            max_value=2.0,
-                            value=config.repetition_penalty or 1.0,
-                            step=0.05,
-                            key=f"{agent_name}_rep_pen",
-                            help="Penalize repetition (1.0 = no penalty)"
-                        )
+                    # Advanced parameters
+                    with st.expander("⚙️ Advanced Parameters", expanded=False):
+                        col3a, col3b = st.columns(2)
 
-                        seed = st.number_input(
-                            "Seed",
-                            min_value=0,
-                            max_value=999999,
-                            value=config.seed or 0,
-                            step=1,
-                            key=f"{agent_name}_seed",
-                            help="Random seed for reproducibility (0 = random)"
-                        )
+                        with col3a:
+                            top_p = st.slider(
+                                "Top P",
+                                min_value=0.0,
+                                max_value=1.0,
+                                value=config.top_p or 1.0,
+                                step=0.05,
+                                key=f"{agent_name}_top_p",
+                                help="Nucleus sampling - consider tokens with top_p probability mass"
+                            )
 
-                # Show modified preview
-                st.markdown("**Modified Preview:**")
-                modified_config = {
-                    "model": model,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                }
-                if freq_penalty > 0:
-                    modified_config["frequency_penalty"] = freq_penalty
-                if pres_penalty > 0:
-                    modified_config["presence_penalty"] = pres_penalty
-                if top_p < 1.0:
-                    modified_config["top_p"] = top_p
-                if top_k > 0:
-                    modified_config["top_k"] = top_k
-                if rep_penalty != 1.0:
-                    modified_config["repetition_penalty"] = rep_penalty
-                if min_p > 0:
-                    modified_config["min_p"] = min_p
-                if seed > 0:
-                    modified_config["seed"] = seed
+                            top_k = st.number_input(
+                                "Top K",
+                                min_value=0,
+                                max_value=100,
+                                value=config.top_k or 0,
+                                step=1,
+                                key=f"{agent_name}_top_k",
+                                help="Consider only top K tokens (0 = disabled)"
+                            )
 
-                st.json(modified_config)
+                            min_p = st.slider(
+                                "Min P",
+                                min_value=0.0,
+                                max_value=1.0,
+                                value=config.min_p or 0.0,
+                                step=0.01,
+                                key=f"{agent_name}_min_p",
+                                help="Minimum probability threshold"
+                            )
+
+                        with col3b:
+                            rep_penalty = st.slider(
+                                "Repetition Penalty",
+                                min_value=0.0,
+                                max_value=2.0,
+                                value=config.repetition_penalty or 1.0,
+                                step=0.05,
+                                key=f"{agent_name}_rep_pen",
+                                help="Penalize repetition (1.0 = no penalty)"
+                            )
+
+                            seed = st.number_input(
+                                "Seed",
+                                min_value=0,
+                                max_value=999999,
+                                value=config.seed or 0,
+                                step=1,
+                                key=f"{agent_name}_seed",
+                                help="Random seed for reproducibility (0 = random)"
+                            )
+
+                    # Show modified preview
+                    st.markdown("**Modified Preview:**")
+                    modified_config = {
+                        "model": model,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    }
+                    if freq_penalty > 0:
+                        modified_config["frequency_penalty"] = freq_penalty
+                    if pres_penalty > 0:
+                        modified_config["presence_penalty"] = pres_penalty
+                    if top_p < 1.0:
+                        modified_config["top_p"] = top_p
+                    if top_k > 0:
+                        modified_config["top_k"] = top_k
+                    if rep_penalty != 1.0:
+                        modified_config["repetition_penalty"] = rep_penalty
+                    if min_p > 0:
+                        modified_config["min_p"] = min_p
+                    if seed > 0:
+                        modified_config["seed"] = seed
+
+                    st.json(modified_config)
 
                     # Store modified config for this agent
                     all_modified_configs[agent_name] = {
