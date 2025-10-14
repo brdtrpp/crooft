@@ -118,6 +118,32 @@ st.markdown("""
         background-color: #f8d7da;
         border-left: 4px solid #dc3545;
     }
+
+    /* Streamlined style guide section */
+    .style-guide-section {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        border: 1px solid #dee2e6;
+        margin: 1rem 0;
+    }
+
+    /* Better spacing for form elements */
+    .stSelectbox, .stFileUploader {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Compact button styling */
+    .stButton button {
+        font-weight: 500;
+    }
+
+    /* Info text styling */
+    .stCaption {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -656,45 +682,77 @@ elif page == "New Project":
 
         # Style Guide Selection
         st.markdown("### 📝 Prose Style Guide")
-        style_guide_option = st.radio(
-            "Style Guide",
-            ["None", "Upload Custom", "Use Preset"],
-            horizontal=True,
-            help="Choose how to set the prose style for this series"
-        )
 
-        style_guide = None
-        if style_guide_option == "Upload Custom":
-            uploaded_style = st.file_uploader(
-                "Upload Style Guide (.txt, .md)",
-                type=['txt', 'md'],
-                key="new_project_style_upload"
-            )
-            if uploaded_style:
-                style_guide = uploaded_style.read().decode('utf-8')
-                st.success(f"✅ Loaded style guide from {uploaded_style.name} ({len(style_guide.split())} words)")
-        elif style_guide_option == "Use Preset":
+        # Initialize style guide content in session state if not present
+        if 'temp_style_guide' not in st.session_state:
+            st.session_state.temp_style_guide = ""
+
+        # Source selection with cleaner UI
+        col_load1, col_load2, col_load3 = st.columns(3)
+
+        with col_load1:
             import os
             style_guides_dir = "style_guides"
+            preset_options = ["-- Select Preset --"]
             if os.path.exists(style_guides_dir):
                 available_guides = [f for f in os.listdir(style_guides_dir) if f.endswith('.txt')]
-                if available_guides:
-                    selected_guide = st.selectbox(
-                        "Select Preset Style Guide",
-                        available_guides,
-                        help="Pre-defined style guides for different genres"
-                    )
-                    guide_path = os.path.join(style_guides_dir, selected_guide)
-                    try:
-                        with open(guide_path, 'r', encoding='utf-8') as f:
-                            style_guide = f.read()
-                        st.success(f"✅ Loaded {selected_guide} ({len(style_guide.split())} words)")
-                    except Exception as e:
-                        st.error(f"Error loading style guide: {e}")
-                else:
-                    st.warning("No preset style guides found in style_guides/")
-            else:
-                st.warning("Style guides directory not found")
+                preset_options.extend(available_guides)
+
+            selected_preset = st.selectbox(
+                "Load Preset",
+                preset_options,
+                key="preset_selector",
+                help="Load a pre-defined style guide"
+            )
+
+            if selected_preset != "-- Select Preset --":
+                guide_path = os.path.join(style_guides_dir, selected_preset)
+                try:
+                    with open(guide_path, 'r', encoding='utf-8') as f:
+                        st.session_state.temp_style_guide = f.read()
+                    st.success(f"✅ Loaded {selected_preset}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        with col_load2:
+            uploaded_style = st.file_uploader(
+                "Upload File",
+                type=['txt', 'md'],
+                key="new_project_style_upload",
+                help="Upload your own style guide"
+            )
+            if uploaded_style:
+                st.session_state.temp_style_guide = uploaded_style.read().decode('utf-8')
+                st.success(f"✅ Loaded {uploaded_style.name}")
+
+        with col_load3:
+            if st.button("Clear", use_container_width=True, help="Clear the style guide"):
+                st.session_state.temp_style_guide = ""
+                st.rerun()
+
+        # Text area for viewing/editing style guide
+        style_guide = st.text_area(
+            "Style Guide Content",
+            value=st.session_state.temp_style_guide,
+            height=200,
+            placeholder="""Enter your style guide here, or load a preset/file above.
+
+Examples:
+- Write in the style of Brandon Sanderson with clear magic system explanations
+- Use short, punchy sentences for action scenes
+- Include vivid sensory details, especially smell and touch
+- Favor showing over telling
+- Character dialogue should be sharp and witty""",
+            help="Define the prose style for your series. This will be used throughout generation.",
+            key="style_guide_text_input"
+        )
+
+        # Update session state when text area changes
+        st.session_state.temp_style_guide = style_guide
+
+        # Show word count if content exists
+        if style_guide.strip():
+            st.caption(f"📊 {len(style_guide.split())} words • {len(style_guide)} characters")
 
         submit = st.form_submit_button("🚀 Create Project", type="primary")
 
@@ -754,6 +812,10 @@ elif page == "New Project":
 
                         st.session_state.project = project
                         st.session_state.pipeline = pipeline
+
+                        # Clear temporary style guide state
+                        if 'temp_style_guide' in st.session_state:
+                            del st.session_state.temp_style_guide
 
                         st.success(f"✅ Project created: {project_id}")
                         st.success(f"✅ Project saved to: output/{project.metadata.project_id}_state.json")
