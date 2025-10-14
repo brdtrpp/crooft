@@ -1,0 +1,72 @@
+# Action/Thriller Style Guide
+
+## Voice & Tone
+- Maintain urgency and tension throughout
+- Use tight, economical prose - every word counts
+- Keep reader breathless with forward momentum
+- Build dread and suspense even in quiet moments
+
+## Sentence Structure for Action
+- Short, punchy sentences during action sequences
+- Fragments for impact: "Gun raised. Three shots. Two bodies."
+- Active voice always - eliminate passive constructions
+- One action per sentence for clarity during chaos
+
+## Pacing
+- Action scenes: Rapid-fire, minimal description, pure movement
+- Breathing room: Brief moments for character reaction between action
+- Build tension: Slow down just before explosive moments
+- No info dumps during action - exposition comes in quiet moments
+
+## Action Choreography
+- Be specific about physical movements and spatial relationships
+- Track positions of characters and objects clearly
+- Use environmental details as obstacles or advantages
+- Show cause and effect: bullet hits wall, sends debris flying
+
+## Sensory Details in Action
+- Emphasize sound: gunshots, breaking glass, screaming
+- Physical sensations: impact, pain, adrenaline
+- Smell: gunpowder, blood, smoke
+- Sight: muzzle flash, shadows, quick movements
+- Minimize introspection during action - raw reactions only
+
+## Dialogue
+- Keep it brief and punchy
+- Characters speak in fragments under stress
+- Show urgency through interruptions and incomplete sentences
+- Use silence and action beats instead of long exchanges
+
+## Suspense & Tension
+- Use ticking clocks and deadlines
+- Layer multiple threats simultaneously
+- Show competent opponents - heroes should struggle
+- Include setbacks and complications constantly
+- End scenes/chapters on cliffhangers or revelations
+
+## POV During Action
+- Stay tight in POV character's experience
+- Limited awareness - they don't see everything
+- Include confusion and uncertainty
+- Show physical limitations and exhaustion
+
+## Stakes
+- Make consequences clear and immediate
+- Personal stakes alongside larger threats
+- Show what character stands to lose
+- Raise stakes progressively
+
+## Avoid
+- Long descriptive passages during action
+- Complex sentence structures in fight scenes
+- Character stops to think/remember during danger
+- Unrealistic action sequences - ground in physics
+- Repetitive action beats
+- Deus ex machina rescues
+
+## Fight Scenes
+- Describe specific moves, not general "fighting"
+- Show damage accumulating
+- Include environment in combat
+- Characters get tired, hurt, make mistakes
+- End fights decisively

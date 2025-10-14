@@ -1,0 +1,45 @@
+# Prose Style Guide Example
+
+## Voice & Tone
+- Write in close third-person POV, deeply embedded in the POV character's perspective
+- Use present tense for immediate action, past tense for narrative
+- Maintain an intimate, immersive tone that draws readers into the character's experience
+
+## Sentence Structure
+- Vary sentence length for rhythm: short sentences for tension/action, longer for introspection
+- Use fragments sparingly for emphasis or character voice
+- Avoid purple prose - clarity over flowery language
+
+## Dialogue
+- Make dialogue sound natural and character-specific
+- Use action beats instead of dialogue tags when possible
+- Show subtext - characters don't always say what they mean
+- Avoid "on the nose" exposition dumps in conversation
+- Each character should have a distinct voice
+
+## Show, Don't Tell
+- Replace telling with sensory details and character reactions
+- Instead of "she was angry" → "her jaw clenched, heat flooding her cheeks"
+- Use body language, environmental details, and internal sensations
+
+## Sensory Details
+- Include at least 2-3 senses per beat (not just sight)
+- Ground every scene in physical space
+- Use sensory details that reveal character emotion/state
+
+## Pacing
+- Action scenes: Short paragraphs, active verbs, minimal description
+- Emotional scenes: Allow space for introspection, slower pacing
+- Dialogue scenes: Mix dialogue with action beats and brief internal thoughts
+
+## POV Discipline
+- Filter ALL descriptions through the POV character's perception
+- Never describe what another character thinks/feels unless POV character observes it
+- Use the POV character's vocabulary and worldview
+
+## Avoid
+- Adverbs in dialogue tags (said quickly, whispered softly, etc.)
+- Clichés and overused phrases
+- Info dumps - weave exposition naturally
+- Head-hopping - stay in one POV per scene
+- Passive voice unless intentionally used for effect

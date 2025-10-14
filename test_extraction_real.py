@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+"""Test with the actual error response"""
+
+import json
+
+# The EXACT response from your error message
+response = """Here is my attempt at generating the requested beat of narrative prose in JSON format, following the provided style guide and established lore:
+
+{
+  "meta": {
+    "version": "2.0",
+    "timestamp": "2023-06-10T12:34:56Z",
+    "beat_id": "b1c1sc2bt4",
+    "warnings": []
+  },
+  "full_prose": "Kira crossed her arms, her gaze intense as she studied the holographic projection. 'What about kinetic or sensory elements?' she inquired, her mind already spinning with possibilities. 'In past exchanges with guests who prioritized emotional connection, we incorporated things like warm lighting, soft textures, and soothing scents. Are there any specific touches like that we could include to enhance his experience?'\\n\\nLian nodded thoughtfully. 'Great point, Kira. The pre-screening data indicates he responds well to gentle, nurturing touch. Perhaps we could incorporate some plush fabrics and weighted blankets to create a sense of security and comfort.'\\n\\nArden smiled, her eyes sparkling with warmth. 'I love that idea. And maybe we could use the ship's environmental controls to infuse the space with a subtle, calming scent, like lavender or sandalwood.'\\n\\nKira's lips curved into a satisfied smile. 'Perfect. I'll make a note in the Negotiated Scene Plan to have those elements ready. With those sensory details layered in, I think we'll be able to craft an incredibly intimate and emotionally fulfilling experience for our guest.'",
+  "paragraphs": [
+    {
+      "paragraph_number": 1,
+      "paragraph_type": "mixed",
+      "content": "Kira crossed her arms, her gaze intense as she studied the holographic projection. 'What about kinetic or sensory elements?' she inquired, her mind already spinning with possibilities. 'In past exchanges with guests who prioritized emotional connection, we incorporated things like warm lighting, soft textures, and soothing scents. Are there any specific touches like that we could include to enhance his experience?'",
+      "dialogue_lines": [
+        {
+          "speaker": "Kira",
+          "dialogue": "What about kinetic or sensory elements? In past exchanges with guests who prioritized emotional connection, we incorporated things like warm lighting, soft textures, and soothing scents. Are there any specific touches like that we could include to enhance his experience?",
+          "action": "she inquired, her mind already spinning with possibilities",
+          "internal_thought": null
+        }
+      ],
+      "pov_character": null,
+      "word_count": 87,
+      "primary_emotion": "Focused anticipation",
+      "narrative_function": "Setup"
+    },
+    {
+      "paragraph_number": 2,
+      "paragraph_type": "mixed",
+      "content": "Lian nodded thoughtfully. 'Great point, Kira. The pre-screening data indicates he responds well to gentle, nurturing touch. Perhaps we could incorporate some plush fabrics and weighted blankets to create a sense of security and comfort.'",
+      "dialogue_lines": [
+        {
+          "speaker": "Lian",
+          "dialogue": "Great point, Kira. The pre-screening data indicates he responds well to gentle, nurturing touch. Perhaps we could incorporate some plush fabrics and weighted blankets to create a sense of security and comfort.",
+          "action": null,
+          "internal_thought": null
+        }
+      ],
+      "pov_character": null,
+      "word_count": 50,
+      "primary_emotion": "Thoughtful collaboration",
+      "narrative_function": "Dialogue"
+    },
+    {
+      "paragraph_number": 3,
+      "paragraph_type": "mixed",
+      "content": "Arden smiled, her eyes sparkling with warmth. 'I love that idea. And maybe we could use the ship's environmental controls to infuse the space with a subtle, calming scent, like lavender or sandalwood.'",
+      "dialogue_lines": [
+        {
+          "speaker": "Arden",
+          "dialogue": "I love that idea. And maybe we could use the ship's environmental controls to infuse the space with a subtle, calming scent, like lavender or sandalwood.",
+          "action": null,
+          "internal_thought": null
+        }
+      ],
+      "pov_character": "Arden Vale",
+      "word_count": 42,
+      "primary_emotion": "Warm enthusiasm",
+      "narrative_function": "Dialogue"
+    },
+    {
+      "paragraph_number": 4,
+      "paragraph_type": "mixed",
+      "content": "Kira's lips curved into a satisfied smile. 'Perfect. I'll make a note in the Negotiated Scene Plan to have those elements ready. With those sensory details layered in, I think we'll be able to craft an incredibly intimate and emotionally fulfilling experience for our guest.'",
+      "dialogue_lines": [
+        {
+          "speaker": "Kira",
+          "dialogue": "Perfect. I'll make a note in the Negotiated Scene Plan to have those elements ready. With those sensory details layered in, I think we'll be able to craft an incredibly intimate and emotionally fulfilling experience for our guest.",
+          "action": null,
+          "internal_thought": null
+        }
+      ],
+      "pov_character": null,
+      "word_count": 62,
+      "primary_emotion": "Satisfied anticipation",
+      "narrative_function": "Dialogue"
+    }
+  ],
+  "word_count": 241,
+  "tone_assessment": "The prose matches the focused, collaborative atmosphere and emotional tone of anticipation.",
+  "pov_consistency": "The scene maintains Arden's POV consistently, with her thoughts and reactions included."
+}"""
+
+print("Testing extraction logic...")
+print(f"Response length: {len(response)} chars\n")
+
+# Extraction logic from prose_generator.py
+response_text = response.strip()
+json_start = response_text.find('{')
+json_end = response_text.rfind('}') + 1
+
+print(f"JSON start index: {json_start}")
+print(f"JSON end index: {json_end}")
+print(f"Preamble: '{response_text[:json_start]}'")
+print()
+
+if json_start != -1 and json_end > json_start:
+    json_str = response_text[json_start:json_end]
+    print(f"Extracted JSON length: {len(json_str)} chars")
+    print(f"First 200 chars: {json_str[:200]}")
+    print()
+
+    try:
+        parsed = json.loads(json_str)
+        print("SUCCESS: JSON parsed correctly!")
+        print(f"Word count: {parsed['word_count']}")
+        print(f"Paragraphs: {len(parsed['paragraphs'])}")
+    except Exception as e:
+        print(f"FAILED: {e}")
+        print(f"JSON string starts with: {repr(json_str[:100])}")
+else:
+    print("FAILED: Could not find JSON braces")

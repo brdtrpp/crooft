@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install streamlit)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m streamlit run web_ui.py)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install pinecone-client)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install langchain langchain-community langchain-openai langchain-core pydantic python-dotenv openai)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip uninstall pinecone-client -y)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install pinecone)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install json-repair)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install sentence-transformers)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -c \"import sentence_transformers; print(''Installed:'', sentence_transformers.__version__)\")",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe -m pip install --no-cache-dir sentence-transformers)",
+      "Bash(C:/Users/trapp/AppData/Local/Programs/Python/Python313/python.exe:*)",
+      "Bash(tasklist)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(wmic process where:*)",
+      "Bash(dir output)",
+      "Bash(C:UserstrappAppDataLocalProgramsPythonPython313python.exe -m streamlit run web_ui.py)",
+      "Bash(dir outputerror_qa_*.txt /O-D)",
+      "Bash(dir:*)",
+      "Bash(python:*)",
+      "Bash(cmd /c \"dir error_qa_*.txt /O-D\")",
+      "Bash(cmd /c \"tasklist | findstr streamlit\")",
+      "Bash(cmd /c:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(del remove_nul.py)",
+      "Bash(git config:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
