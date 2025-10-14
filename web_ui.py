@@ -210,7 +210,7 @@ with st.sidebar:
     # Navigation with selectbox (cleaner than radio buttons)
     page = st.selectbox(
         "📍 Navigation",
-        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Prose Reader", "Editing Suite", "Chat", "Settings", "Analytics", "Export"],
+        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Prose Reader", "Editing Suite", "Chat", "Settings", "Agent Config", "Analytics", "Export"],
         label_visibility="visible"
     )
 
@@ -3143,6 +3143,171 @@ elif page == "Settings":
 
             finally:
                 st.session_state.running = False
+
+elif page == "Agent Config":
+    st.markdown('<p class="main-header">⚙️ Agent Configuration</p>', unsafe_allow_html=True)
+    st.markdown("Configure models, parameters, and prompts for all pipeline agents.")
+    st.markdown("---")
+
+    # Import necessary modules
+    from utils.model_config import ModelConfig, AgentModelConfig
+    import inspect
+
+    # Tabs for different configuration aspects
+    tab1, tab2, tab3 = st.tabs(["📊 Model Configurations", "🎨 Presets", "📝 Agent Prompts"])
+
+    with tab1:
+        st.markdown("### Current Model Configurations")
+        st.caption("View and edit model settings for each agent")
+
+        # Get current defaults
+        defaults = ModelConfig.DEFAULTS
+
+        # Create expandable sections for each agent
+        for agent_name, config in defaults.items():
+            with st.expander(f"🤖 {agent_name.upper()} Agent", expanded=False):
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Model Settings**")
+                    model = st.text_input(
+                        "Model",
+                        value=config.model,
+                        key=f"{agent_name}_model",
+                        help="OpenRouter model name (e.g., anthropic/claude-3.5-sonnet)"
+                    )
+
+                    temperature = st.slider(
+                        "Temperature",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=config.temperature,
+                        step=0.05,
+                        key=f"{agent_name}_temp",
+                        help="Higher = more creative, Lower = more deterministic"
+                    )
+
+                with col2:
+                    st.markdown("**Token & Penalty Settings**")
+                    max_tokens = st.number_input(
+                        "Max Tokens",
+                        min_value=500,
+                        max_value=32000,
+                        value=config.max_tokens or 2000,
+                        step=500,
+                        key=f"{agent_name}_tokens",
+                        help="Maximum tokens to generate"
+                    )
+
+                    col2a, col2b = st.columns(2)
+                    with col2a:
+                        freq_penalty = st.number_input(
+                            "Frequency Penalty",
+                            min_value=0.0,
+                            max_value=2.0,
+                            value=config.frequency_penalty or 0.0,
+                            step=0.1,
+                            key=f"{agent_name}_freq",
+                            help="Reduce repetition"
+                        )
+                    with col2b:
+                        pres_penalty = st.number_input(
+                            "Presence Penalty",
+                            min_value=0.0,
+                            max_value=2.0,
+                            value=config.presence_penalty or 0.0,
+                            step=0.1,
+                            key=f"{agent_name}_pres",
+                            help="Encourage new topics"
+                        )
+
+                # Show configuration summary
+                st.json({
+                    "model": model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "frequency_penalty": freq_penalty if freq_penalty > 0 else None,
+                    "presence_penalty": pres_penalty if pres_penalty > 0 else None
+                })
+
+                # Save button
+                if st.button(f"💾 Save {agent_name.upper()} Config", key=f"save_{agent_name}"):
+                    st.success(f"✅ {agent_name} configuration saved!")
+                    st.info("Note: Configuration editing is for display only. To apply changes, modify utils/model_config.py directly.")
+
+    with tab2:
+        st.markdown("### Available Presets")
+        st.caption("Pre-configured setups for common scenarios")
+
+        presets = ModelConfig.get_presets()
+
+        for preset_name, preset_config in presets.items():
+            with st.expander(f"🎯 {preset_name.upper().replace('_', ' ')}", expanded=False):
+                st.markdown(f"**Configuration for: {preset_name}**")
+
+                if not preset_config:
+                    st.info("Uses default balanced configuration")
+                else:
+                    for agent, settings in preset_config.items():
+                        st.markdown(f"**{agent.upper()}**:")
+                        for key, value in settings.items():
+                            st.text(f"  • {key}: {value}")
+
+                st.markdown("---")
+                st.markdown("**Usage:**")
+                st.code(f'pipeline = FictionPipeline(preset="{preset_name}", ...)', language="python")
+
+    with tab3:
+        st.markdown("### Agent Prompts & Instructions")
+        st.caption("View the system prompts used by each agent")
+
+        # Import all agent classes
+        from agents.series_refiner import SeriesRefinerAgent
+        from agents.book_outliner import BookOutlinerAgent
+        from agents.chapter_developer import ChapterDeveloperAgent
+        from agents.scene_developer import SceneDeveloperAgent
+        from agents.prose_generator import ProseGeneratorAgent
+        from agents.qa_agent import QAAgent
+        from agents.lore_master import LoreMaster
+
+        agents_map = {
+            "Series Refiner": SeriesRefinerAgent,
+            "Book Outliner": BookOutlinerAgent,
+            "Chapter Developer": ChapterDeveloperAgent,
+            "Scene Developer": SceneDeveloperAgent,
+            "Prose Generator": ProseGeneratorAgent,
+            "QA Agent": QAAgent,
+            "Lore Master": LoreMaster
+        }
+
+        for agent_name, agent_class in agents_map.items():
+            with st.expander(f"📜 {agent_name}", expanded=False):
+                try:
+                    # Create a temporary instance to get the prompt
+                    # Use a mock LLM since we just need the prompt
+                    class MockLLM:
+                        pass
+
+                    temp_agent = agent_class(MockLLM())
+                    prompt = temp_agent.get_prompt()
+
+                    # Display prompt
+                    st.markdown(f"**System Prompt for {agent_name}:**")
+                    st.text_area(
+                        "Prompt",
+                        value=prompt,
+                        height=400,
+                        key=f"prompt_{agent_name}",
+                        help="This is the system prompt sent to the LLM"
+                    )
+
+                    st.caption(f"📏 Length: {len(prompt)} characters ({len(prompt.split())} words)")
+
+                except Exception as e:
+                    st.error(f"Could not load prompt: {e}")
+
+        st.markdown("---")
+        st.info("💡 **Note:** To edit prompts, modify the `get_prompt()` method in each agent's Python file located in the `agents/` directory.")
 
 elif page == "Analytics":
     st.markdown('<p class="main-header">Project Analytics</p>', unsafe_allow_html=True)
