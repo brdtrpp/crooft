@@ -6,6 +6,7 @@ pydantic>=2.5.0
 python-dotenv>=1.0.0
 pinecone>=7.0.0
 openai>=1.0.0
+json-repair>=0.25.0
 
 # Web UI dependencies
 streamlit>=1.28.0
