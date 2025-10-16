@@ -3,13 +3,11 @@ services:
     name: fiction-pipeline-reflex
     env: python
     plan: free
-    region: oregon
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
       reflex init
-      reflex export --frontend-only --no-zip
-    startCommand: reflex run --env prod --backend-only
+    startCommand: reflex run --env prod --loglevel info
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
@@ -19,18 +17,3 @@ services:
         sync: false
       - key: PINECONE_ENVIRONMENT
         sync: false
-      - key: API_URL
-        value: https://fiction-pipeline-reflex.onrender.com
-
-  - type: static
-    name: fiction-pipeline-frontend
-    env: static
-    buildCommand: |
-      pip install -r requirements.txt
-      reflex init
-      reflex export --frontend-only --no-zip
-    staticPublishPath: .web/_static
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://fiction-pipeline-reflex.onrender.com/api/*
