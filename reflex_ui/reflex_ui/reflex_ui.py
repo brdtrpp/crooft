@@ -654,15 +654,6 @@ Leave blank to use default prose generation.""",
                     height="200px",
                 ),
 
-                rx.cond(
-                    State.new_style_guide != "",
-                    rx.text(
-                        f"Word count: {len(State.new_style_guide.split())} words • {len(State.new_style_guide)} characters",
-                        size="2",
-                        color="gray"
-                    ),
-                ),
-
                 spacing="3",
                 align_items="start",
                 width="100%",
