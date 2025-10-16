@@ -1831,11 +1831,13 @@ def login_page() -> rx.Component:
 
 def index() -> rx.Component:
     """Main app entry point"""
-    return rx.cond(
-        State.is_authenticated,
-        main_layout(),
-        login_page(),
-    )
+    # Temporarily disable auth for deployment testing
+    return main_layout()
+    # return rx.cond(
+    #     State.is_authenticated,
+    #     main_layout(),
+    #     login_page(),
+    # )
 
 
 app = rx.App()
