@@ -7,7 +7,7 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
       reflex init
-    startCommand: reflex run --env prod --loglevel info
+    startCommand: reflex run --env prod --backend-only --loglevel info --backend-host 0.0.0.0 --backend-port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11

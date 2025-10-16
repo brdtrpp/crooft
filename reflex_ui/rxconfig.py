@@ -4,4 +4,6 @@ import os
 config = rx.Config(
     app_name="reflex_ui",
     api_url=os.getenv("API_URL", "http://localhost:8000"),
+    backend_port=int(os.getenv("PORT", 8000)),
+    frontend_port=3000,
 )
