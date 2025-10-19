@@ -210,7 +210,7 @@ with st.sidebar:
     # Navigation with selectbox (cleaner than radio buttons)
     page = st.selectbox(
         "📍 Navigation",
-        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Prose Reader", "Editing Suite", "Chat", "Settings", "Agent Config", "Analytics", "Export"],
+        ["Home", "New Project", "Load Project", "Project Manager", "Stage Viewer", "Step-by-Step", "Background Jobs", "Prose Reader", "Editing Suite", "Chat", "Settings", "Agent Config", "Analytics", "Export"],
         label_visibility="visible"
     )
 
@@ -273,36 +273,78 @@ with st.sidebar:
     # Global Model Configuration (available across all pages)
     st.markdown("### ⚙️ Model Configuration")
 
+    # Load custom configs from disk
+    from utils.model_config import ModelConfig
+    if 'custom_configs' not in st.session_state:
+        st.session_state.custom_configs = {}
+        for config_name in ModelConfig.list_custom_configs():
+            loaded_config = ModelConfig.load_custom_config(config_name)
+            if loaded_config:
+                st.session_state.custom_configs[config_name] = loaded_config
+
+    # Get all available presets (built-in + custom)
+    builtin_presets = [
+        "balanced",
+        "creative",
+        "precise",
+        "cost_optimized",
+        "premium",
+        "balanced_nsfw",
+        "creative_nsfw",
+        "precise_nsfw",
+        "cost_optimized_nsfw",
+        "premium_nsfw"
+    ]
+    custom_config_names = list(st.session_state.custom_configs.keys())
+    all_presets = builtin_presets + custom_config_names
+
     preset = st.selectbox(
         "Preset",
-        [
-            "balanced",
-            "creative",
-            "precise",
-            "cost_optimized",
-            "premium",
-            "balanced_nsfw",
-            "creative_nsfw",
-            "precise_nsfw",
-            "cost_optimized_nsfw",
-            "premium_nsfw"
-        ],
-        index=9,  # Default to premium_nsfw
-        help="Standard presets use Claude/Gemini. NSFW presets use uncensored models for prose generation."
+        all_presets,
+        index=0,  # Default to balanced (safe, non-NSFW)
+        format_func=lambda x: f"{x}" if x in builtin_presets else f"{x} (Custom)",
+        help="Standard presets use Claude/Gemini. NSFW presets use uncensored models. Custom configs are loaded from disk."
     )
+
+    # Prepare model_config and preset parameters for FictionPipeline
+    # If using a custom config, pass it as model_config dict; otherwise use preset name
+    if preset in builtin_presets:
+        pipeline_preset = preset
+        pipeline_model_config = None
+    else:
+        # It's a custom config - convert to dict for pipeline
+        pipeline_preset = None
+        custom_config_obj = st.session_state.custom_configs.get(preset, {})
+        pipeline_model_config = {}
+        for agent_name, agent_config in custom_config_obj.items():
+            # Convert AgentModelConfig objects to dicts
+            if hasattr(agent_config, 'dict'):
+                pipeline_model_config[agent_name] = agent_config.dict(exclude_none=True)
+            else:
+                pipeline_model_config[agent_name] = agent_config
 
     use_lore_db = st.checkbox("Enable Lore Vector Database", value=bool(pinecone_key))
 
     # Show current model configuration
     with st.expander("📋 View Current Model Config", expanded=False):
-        from utils.model_config import ModelConfig
-        preset_config = ModelConfig.get_presets().get(preset, {})
+        # Check if it's a built-in preset or custom config
+        if preset in builtin_presets:
+            preset_config = ModelConfig.get_presets().get(preset, {})
+        else:
+            # It's a custom config
+            preset_config = st.session_state.custom_configs.get(preset, {})
 
         if preset_config:
-            st.caption(f"**Preset: {preset}**")
+            config_type = "Built-in Preset" if preset in builtin_presets else "Custom Config"
+            st.caption(f"**{config_type}: {preset}**")
             for agent, config in preset_config.items():
-                model_name = config.get('model', 'anthropic/claude-3.5-sonnet')
-                temp = config.get('temperature', 0.7)
+                # Handle both dict and AgentModelConfig objects
+                if hasattr(config, 'model'):
+                    model_name = config.model
+                    temp = config.temperature
+                else:
+                    model_name = config.get('model', 'anthropic/claude-3.5-sonnet')
+                    temp = config.get('temperature', 0.7)
                 st.text(f"{agent:12} → {model_name:40} (temp={temp})")
         else:
             st.caption("Using default configuration")
@@ -703,8 +745,14 @@ elif page == "New Project":
 
         premise = st.text_area(
             "Series Premise",
-            placeholder="A team of specialists must steal an impossible artifact from a time-locked vault.",
-            height=100
+            placeholder="""A team of specialists must steal an impossible artifact from a time-locked vault.
+
+You can use **Markdown** formatting:
+- *Italics* for emphasis
+- **Bold** for important points
+- Lists, headings, etc.""",
+            height=250,
+            help="Describe your series premise. Supports Markdown formatting for rich text."
         )
 
         # Style Guide Selection
@@ -790,7 +838,8 @@ Leave blank to use default prose generation.""",
                             output_dir="output",
                             openrouter_api_key=openrouter_key,
                             use_lore_db=use_lore_db,
-                            preset=preset,
+                            preset=pipeline_preset,
+                            model_config=pipeline_model_config,
                             requirements={
                                 "num_books": num_books,
                                 "chapters_per_book_range": chapters_per_book_range,
@@ -836,7 +885,8 @@ elif page == "Load Project":
                             project_id=project_data['metadata'].get('project_id'),
                             output_dir=output_dir,
                             openrouter_api_key=openrouter_key,
-                            preset=preset,
+                            preset=pipeline_preset,
+                            model_config=pipeline_model_config,
                             use_lore_db=use_lore_db
                         )
                         st.session_state.pipeline = pipeline
@@ -931,7 +981,8 @@ elif page == "Project Manager":
                                         project_id=proj['metadata'].get('project_id'),
                                         output_dir=output_dir,
                                         openrouter_api_key=openrouter_key,
-                                        preset=preset,
+                                        preset=pipeline_preset,
+                                        model_config=pipeline_model_config,
                                         use_lore_db=use_lore_db
                                     )
                                     st.session_state.pipeline = pipeline
@@ -964,7 +1015,12 @@ elif page == "Project Manager":
                 if st.session_state.get(f'editing_{project_name}'):
                     with st.form(key=f"edit_form_{idx}"):
                         new_title = st.text_input("Title", value=proj['series'].get('title', ''))
-                        new_premise = st.text_area("Premise", value=proj['series'].get('premise', ''), height=100)
+                        new_premise = st.text_area(
+                            "Premise",
+                            value=proj['series'].get('premise', ''),
+                            height=250,
+                            help="Supports Markdown formatting for rich text."
+                        )
 
                         save_col, cancel_col = st.columns(2)
                         if save_col.form_submit_button("💾 Save", type="primary", use_container_width=True):
@@ -1133,7 +1189,7 @@ elif page == "Stage Viewer":
                         st.markdown(f"- {theme}")
 
             st.markdown("#### Premise")
-            st.text_area("Series Premise", project.series.premise, height=150, disabled=True, key="series_premise_view")
+            st.text_area("Series Premise", project.series.premise, height=250, disabled=True, key="series_premise_view")
 
             if project.series.subgenres:
                 st.markdown("#### Subgenres")
@@ -2053,6 +2109,234 @@ elif page == "Step-by-Step":
                                             st.code(traceback.format_exc())
 
                                 st.markdown("---")
+
+elif page == "Background Jobs":
+    st.markdown('<p class="main-header">⚙️ Background Jobs</p>', unsafe_allow_html=True)
+    st.markdown("Monitor and control pipeline executions running in the background.")
+
+    # Initialize task queue (connects to existing worker daemon)
+    if 'task_queue' not in st.session_state:
+        from utils.task_queue import TaskQueue
+        st.session_state.task_queue = TaskQueue()
+
+    task_queue = st.session_state.task_queue
+
+    # Check if worker daemon is running
+    import subprocess
+    import time
+    try:
+        result = subprocess.run(['pgrep', '-f', 'worker_daemon.py'], capture_output=True, text=True)
+        worker_running = bool(result.stdout.strip())
+    except:
+        worker_running = False
+
+    if not worker_running:
+        st.warning("⚠️ Background worker daemon is not running. Jobs will not be processed.")
+        st.info("""
+**To start the worker daemon:**
+
+In a separate terminal, run:
+```bash
+python3 worker_daemon.py
+```
+
+Or start it in the background:
+```bash
+nohup python3 worker_daemon.py > worker.log 2>&1 &
+```
+        """)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚀 Start Worker Daemon Now", use_container_width=True):
+                subprocess.Popen(['nohup', 'python3', 'worker_daemon.py'],
+                               stdout=open('worker.log', 'w'),
+                               stderr=subprocess.STDOUT,
+                               start_new_session=True,
+                               cwd=os.getcwd())
+                st.success("✅ Worker daemon started! Refresh page to see status.")
+                time.sleep(2)
+                st.rerun()
+    else:
+        st.success("✅ Background worker daemon is running")
+
+    st.markdown("---")
+
+    # Auto-refresh controls
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown("### 🔄 Live Status")
+    with col2:
+        auto_refresh = st.checkbox("Auto-refresh", value=True, key="bg_auto_refresh")
+
+    # Start New Job Section
+    st.markdown("---")
+    st.markdown("### ▶️ Start New Pipeline Job")
+
+    col1, col2, col3 = st.columns([2, 2, 1])
+
+    with col1:
+        if st.session_state.project:
+            project_id = st.session_state.project.metadata.project_id
+            st.info(f"Current Project: **{project_id}**")
+        else:
+            st.warning("⚠️ No project loaded")
+            project_id = None
+
+    with col2:
+        preset = st.selectbox(
+            "Model Preset",
+            ["balanced", "creative", "precise", "cost_optimized", "premium"],
+            key="bg_preset"
+        )
+
+    with col3:
+        if st.button("🚀 Start Job", disabled=not project_id, use_container_width=True):
+            if project_id:
+                job_id = task_queue.enqueue_pipeline(
+                    project_id=project_id,
+                    preset=pipeline_preset,
+                    model_config=pipeline_model_config,
+                    use_lore_db=True,
+                    requirements=st.session_state.pipeline.requirements if hasattr(st.session_state, 'pipeline') and st.session_state.pipeline else {}
+                )
+                st.success(f"✅ Job started! ID: {job_id[:8]}...")
+                st.rerun()
+
+    # Running Jobs
+    st.markdown("---")
+    st.markdown("### 🏃 Active Jobs")
+
+    running_jobs = task_queue.list_jobs(status="running", limit=50)
+    queued_jobs = task_queue.list_jobs(status="queued", limit=50)
+
+    if not running_jobs and not queued_jobs:
+        st.info("No active jobs")
+    else:
+        # Show running jobs
+        for job in running_jobs:
+            with st.expander(f"🔄 **{job.project_id}** - {job.current_stage or 'Starting...'}", expanded=True):
+                col1, col2, col3 = st.columns([3, 1, 1])
+
+                with col1:
+                    st.progress(job.progress_percent / 100.0)
+                    st.caption(f"Progress: {job.progress_percent:.1f}%")
+                    st.caption(f"Started: {job.started_at.strftime('%Y-%m-%d %H:%M:%S') if job.started_at else 'N/A'}")
+
+                with col2:
+                    if st.button("⏸️ Pause", key=f"pause_{job.job_id}"):
+                        task_queue.pause_job(job.job_id)
+                        st.rerun()
+
+                with col3:
+                    if st.button("❌ Cancel", key=f"cancel_{job.job_id}"):
+                        task_queue.cancel_job(job.job_id)
+                        st.rerun()
+
+                # Show recent logs
+                logs = task_queue.get_logs(job.job_id, limit=10)
+                if logs:
+                    with st.expander("📋 Recent Logs"):
+                        for log in logs[-5:]:  # Show last 5 logs
+                            st.text(log['log_line'])
+
+        # Show queued jobs
+        for job in queued_jobs:
+            with st.expander(f"⏳ **{job.project_id}** - Queued"):
+                st.caption(f"Job ID: {job.job_id}")
+                st.caption(f"Created: {job.started_at.strftime('%Y-%m-%d %H:%M:%S') if job.started_at else 'N/A'}")
+
+                if st.button("❌ Remove from Queue", key=f"remove_{job.job_id}"):
+                    task_queue.delete_job(job.job_id)
+                    st.rerun()
+
+    # Paused Jobs
+    st.markdown("---")
+    st.markdown("### ⏸️ Paused Jobs")
+
+    paused_jobs = task_queue.list_jobs(status="paused", limit=50)
+
+    if not paused_jobs:
+        st.info("No paused jobs")
+    else:
+        for job in paused_jobs:
+            with st.expander(f"⏸️ **{job.project_id}** - Paused at {job.current_stage}"):
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.caption(f"Progress: {job.progress_percent:.1f}%")
+                    st.caption(f"Paused at: {job.current_stage}")
+
+                with col2:
+                    if st.button("▶️ Resume", key=f"resume_{job.job_id}"):
+                        task_queue.resume_job(job.job_id)
+                        st.success("Job queued for resumption!")
+                        st.rerun()
+
+    # Completed Jobs
+    st.markdown("---")
+    st.markdown("### ✅ Completed Jobs")
+
+    completed_jobs = task_queue.list_jobs(status="completed", limit=20)
+
+    if not completed_jobs:
+        st.info("No completed jobs")
+    else:
+        for job in completed_jobs:
+            with st.expander(f"✅ **{job.project_id}** - Completed"):
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.caption(f"Started: {job.started_at.strftime('%Y-%m-%d %H:%M:%S') if job.started_at else 'N/A'}")
+                    st.caption(f"Completed: {job.completed_at.strftime('%Y-%m-%d %H:%M:%S') if job.completed_at else 'N/A'}")
+
+                    if job.started_at and job.completed_at:
+                        duration = job.completed_at - job.started_at
+                        st.caption(f"Duration: {duration}")
+
+                with col2:
+                    if st.button("🗑️ Delete", key=f"delete_{job.job_id}"):
+                        task_queue.delete_job(job.job_id)
+                        st.rerun()
+
+    # Failed Jobs
+    st.markdown("---")
+    st.markdown("### ❌ Failed Jobs")
+
+    failed_jobs = task_queue.list_jobs(status="failed", limit=20)
+
+    if not failed_jobs:
+        st.info("No failed jobs")
+    else:
+        for job in failed_jobs:
+            with st.expander(f"❌ **{job.project_id}** - Failed at {job.current_stage}"):
+                st.error(f"**Error:** {job.error_message}")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.caption(f"Failed at: {job.current_stage}")
+                    st.caption(f"Progress: {job.progress_percent:.1f}%")
+
+                with col2:
+                    if st.button("🔄 Retry", key=f"retry_{job.job_id}"):
+                        # Resume from last checkpoint
+                        task_queue.resume_job(job.job_id)
+                        st.success("Job queued for retry!")
+                        st.rerun()
+
+                # Show error logs
+                logs = task_queue.get_logs(job.job_id, limit=20)
+                if logs:
+                    with st.expander("📋 Error Logs"):
+                        for log in logs[-10:]:
+                            st.text(log['log_line'])
+
+    # Auto-refresh
+    if auto_refresh:
+        import time
+        time.sleep(2)
+        st.rerun()
 
 elif page == "Prose Reader":
     st.markdown('<p class="main-header">📖 Prose Reader</p>', unsafe_allow_html=True)
@@ -3106,7 +3390,8 @@ elif page == "Settings":
                         project_id=project.metadata.project_id,
                         output_dir="output",
                         openrouter_api_key=openrouter_key,
-                        preset=preset,
+                        preset=pipeline_preset,
+                        model_config=pipeline_model_config,
                         use_lore_db=use_lore_db,
                         requirements=getattr(st.session_state.pipeline, 'requirements', {}) if st.session_state.pipeline else {}
                     )
@@ -3151,44 +3436,186 @@ elif page == "Agent Config":
 
     # Import necessary modules
     from utils.model_config import ModelConfig, AgentModelConfig
+    from utils.openrouter_models import OpenRouterModels
     import inspect
-    import requests
 
-    # Function to fetch OpenRouter models
+    # Initialize OpenRouter models fetcher
+    @st.cache_resource
+    def get_openrouter_fetcher():
+        """Get cached OpenRouter models fetcher"""
+        return OpenRouterModels()
+
+    openrouter_fetcher = get_openrouter_fetcher()
+
+    # Function to get model choices
     @st.cache_data(ttl=3600)  # Cache for 1 hour
     def get_openrouter_models():
-        """Fetch available models from OpenRouter API"""
+        """Get available models with reasoning indicators"""
         try:
-            api_key = os.getenv("OPENROUTER_API_KEY")
-            if not api_key:
-                return []
-
-            response = requests.get(
-                "https://openrouter.ai/api/v1/models",
-                headers={"Authorization": f"Bearer {api_key}"},
-                timeout=10
-            )
-
-            if response.status_code == 200:
-                models = response.json().get("data", [])
-                # Extract model IDs and sort alphabetically
-                model_ids = sorted([m.get("id", "") for m in models if m.get("id")])
-                return model_ids
-            else:
-                return []
+            # Get formatted choices with 🧠 emoji for reasoning models
+            choices = openrouter_fetcher.get_model_choices(include_reasoning_indicator=True)
+            return choices
         except Exception as e:
             print(f"Error fetching OpenRouter models: {e}")
             return []
+
+    # Global System Instructions
+    st.markdown("### 🌐 Universal System Instructions")
+    st.markdown("These instructions will be prepended to **all agents** across the entire pipeline.")
+
+    # Initialize global instructions in session state
+    if 'global_system_instructions' not in st.session_state:
+        st.session_state.global_system_instructions = ""
+
+    global_instructions = st.text_area(
+        "System Instructions (Applied to All Agents)",
+        value=st.session_state.global_system_instructions,
+        height=200,
+        placeholder="""Examples of universal instructions:
+
+• Writing Style: "Always write in third-person limited perspective with vivid sensory details."
+• Content Guidelines: "This is a PG-13 story - avoid graphic violence or explicit content."
+• Tone: "Maintain a dark, gritty tone throughout. Use short, punchy sentences."
+• POV Characters: "Only use POV from: Alice, Bob, and Carol. Never switch to villain POV."
+• World Rules: "Magic always has a physical cost. Technology is Victorian-era steampunk."
+• Formatting: "Use em-dashes for interruptions, never ellipses."
+• Character Voice: "Alice speaks formally, Bob uses slang, Carol is terse and direct."
+
+These instructions override defaults and apply to EVERY stage of generation.""",
+        help="These instructions are prepended to all agent prompts. Use this for project-wide style, tone, content guidelines, or world rules.",
+        key="global_instructions_input"
+    )
+
+    # Save button
+    col1, col2, col3 = st.columns([2, 2, 3])
+    with col1:
+        if st.button("💾 Save Global Instructions", use_container_width=True, type="primary"):
+            st.session_state.global_system_instructions = global_instructions
+
+            # Save to project if one is loaded
+            if 'project' in st.session_state and st.session_state.project:
+                st.session_state.project.series.global_instructions = global_instructions
+                if 'pipeline' in st.session_state and st.session_state.pipeline:
+                    st.session_state.pipeline.state_manager.save_state(
+                        st.session_state.project,
+                        "global_instructions_updated"
+                    )
+
+            st.success("✅ Global instructions saved!")
+            st.rerun()
+
+    with col2:
+        if st.button("🗑️ Clear Instructions", use_container_width=True):
+            st.session_state.global_system_instructions = ""
+            if 'project' in st.session_state and st.session_state.project:
+                st.session_state.project.series.global_instructions = ""
+            st.rerun()
+
+    with col3:
+        if global_instructions.strip():
+            word_count = len(global_instructions.split())
+            char_count = len(global_instructions)
+            st.caption(f"📊 {word_count} words, {char_count} characters")
+
+    if global_instructions.strip():
+        st.info(f"✅ **Active:** These instructions will be prepended to all agent prompts")
+    else:
+        st.warning("⚠️ No global instructions set - using default agent prompts only")
+
+    st.markdown("---")
+
+    # Forbidden Words/Phrases Section
+    st.markdown("### 🚫 Forbidden Words & Phrases")
+    st.markdown("Specify words, phrases, or clichés that agents should **never use** in generated content.")
+
+    # Initialize forbidden words in session state
+    if 'forbidden_words' not in st.session_state:
+        st.session_state.forbidden_words = ""
+
+    forbidden_words_input = st.text_area(
+        "Forbidden Words/Phrases (one per line)",
+        value=st.session_state.forbidden_words,
+        height=150,
+        placeholder="""Enter words or phrases to avoid (one per line):
+
+suddenly
+all of a sudden
+little did they know
+unbeknownst to
+the air was thick with tension
+time seemed to stand still
+her heart skipped a beat
+a chill ran down his spine
+said angrily
+whispered quietly
+gasped in surprise
+orbs (for eyes)
+raven-haired
+perfectly coiffed
+chiseled features""",
+        help="List words or phrases that should never appear in generated content. One per line. Case-insensitive matching.",
+        key="forbidden_words_input"
+    )
+
+    # Save/Clear buttons
+    col1, col2, col3 = st.columns([2, 2, 3])
+    with col1:
+        if st.button("💾 Save Forbidden Words", use_container_width=True, type="primary", key="save_forbidden"):
+            st.session_state.forbidden_words = forbidden_words_input
+
+            # Save to project if loaded
+            if 'project' in st.session_state and st.session_state.project:
+                st.session_state.project.series.forbidden_words = forbidden_words_input
+                if 'pipeline' in st.session_state and st.session_state.pipeline:
+                    st.session_state.pipeline.state_manager.save_state(
+                        st.session_state.project,
+                        "forbidden_words_updated"
+                    )
+
+            st.success("✅ Forbidden words list saved!")
+            st.rerun()
+
+    with col2:
+        if st.button("🗑️ Clear List", use_container_width=True, key="clear_forbidden"):
+            st.session_state.forbidden_words = ""
+            if 'project' in st.session_state and st.session_state.project:
+                st.session_state.project.series.forbidden_words = ""
+            st.rerun()
+
+    with col3:
+        if forbidden_words_input.strip():
+            forbidden_list = [line.strip() for line in forbidden_words_input.split('\n') if line.strip()]
+            st.caption(f"🚫 {len(forbidden_list)} forbidden items")
+
+    if forbidden_words_input.strip():
+        forbidden_list = [line.strip() for line in forbidden_words_input.split('\n') if line.strip()]
+        st.info(f"✅ **Active:** Agents will avoid using these {len(forbidden_list)} words/phrases")
+
+        # Show preview of list
+        with st.expander("📋 Preview Forbidden List", expanded=False):
+            for item in forbidden_list[:20]:  # Show first 20
+                st.text(f"• {item}")
+            if len(forbidden_list) > 20:
+                st.caption(f"... and {len(forbidden_list) - 20} more")
+    else:
+        st.warning("⚠️ No forbidden words set - agents may use any vocabulary")
+
+    st.markdown("---")
+
+    # Initialize custom configs in session state - load from disk (do this BEFORE tabs)
+    if 'custom_configs' not in st.session_state:
+        st.session_state.custom_configs = {}
+        # Load all saved custom configs from disk
+        for config_name in ModelConfig.list_custom_configs():
+            loaded_config = ModelConfig.load_custom_config(config_name)
+            if loaded_config:
+                st.session_state.custom_configs[config_name] = loaded_config
 
     # Tabs for different configuration aspects
     tab1, tab2, tab3 = st.tabs(["📊 Model Configurations", "🎨 Presets", "📝 Agent Prompts"])
 
     with tab1:
         st.markdown("### Model Configurations")
-
-        # Initialize custom configs in session state
-        if 'custom_configs' not in st.session_state:
-            st.session_state.custom_configs = {}
 
         # Fetch OpenRouter models (cached, no notification)
         openrouter_models = get_openrouter_models()
@@ -3277,19 +3704,27 @@ elif page == "Agent Config":
 
                         # Use selectbox if models loaded, otherwise text input
                         if openrouter_models:
-                            # Find current model in list or use first as default
+                            # Find current model in list (match against clean IDs)
                             try:
-                                current_index = openrouter_models.index(config.model)
+                                # Find index by matching clean model ID
+                                current_index = 0
+                                for i, choice in enumerate(openrouter_models):
+                                    clean_id = openrouter_fetcher.get_model_id_from_choice(choice)
+                                    if clean_id == config.model:
+                                        current_index = i
+                                        break
                             except (ValueError, AttributeError):
                                 current_index = 0
 
-                            model = st.selectbox(
-                                "Model",
+                            model_choice = st.selectbox(
+                                "Model (🧠 = Reasoning/Thinking Model)",
                                 options=openrouter_models,
                                 index=current_index,
                                 key=f"{agent_name}_model",
-                                help="Select from available OpenRouter models (alphabetically sorted)"
+                                help="Select from available OpenRouter models (alphabetically sorted). Models marked with 🧠 have reasoning/thinking capabilities."
                             )
+                            # Extract clean model ID from choice
+                            model = openrouter_fetcher.get_model_id_from_choice(model_choice)
                         else:
                             model = st.text_input(
                                 "Model",
@@ -3477,19 +3912,27 @@ elif page == "Agent Config":
 
                         # Use selectbox if models loaded, otherwise text input
                         if openrouter_models:
-                            # Find current model in list or use first as default
+                            # Find current model in list (match against clean IDs)
                             try:
-                                current_index = openrouter_models.index(config.model)
+                                # Find index by matching clean model ID
+                                current_index = 0
+                                for i, choice in enumerate(openrouter_models):
+                                    clean_id = openrouter_fetcher.get_model_id_from_choice(choice)
+                                    if clean_id == config.model:
+                                        current_index = i
+                                        break
                             except (ValueError, AttributeError):
                                 current_index = 0
 
-                            model = st.selectbox(
-                                "Model",
+                            model_choice = st.selectbox(
+                                "Model (🧠 = Reasoning/Thinking Model)",
                                 options=openrouter_models,
                                 index=current_index,
                                 key=f"{agent_name}_model",
-                                help="Select from available OpenRouter models (alphabetically sorted)"
+                                help="Select from available OpenRouter models (alphabetically sorted). Models marked with 🧠 have reasoning/thinking capabilities."
                             )
+                            # Extract clean model ID from choice
+                            model = openrouter_fetcher.get_model_id_from_choice(model_choice)
                         else:
                             model = st.text_input(
                                 "Model",
@@ -3640,18 +4083,27 @@ elif page == "Agent Config":
 
         # Save as new custom configuration
         st.markdown("### 💾 Save Configuration")
+
+        # Check if editing existing custom config
+        is_overwriting = is_custom and selected_config in ModelConfig.list_custom_configs()
+
         col_save1, col_save2 = st.columns([3, 1])
 
         with col_save1:
             new_config_name = st.text_input(
-                "Save current settings as:",
-                value=f"{selected_config}_modified" if not is_custom else selected_config,
-                help="Enter a name for this configuration"
+                "💾 Save as:" if not is_overwriting else "✏️ Update existing config:",
+                value=selected_config if is_custom else f"{selected_config}_custom",
+                help="Enter a name for this configuration. Use the same name to overwrite an existing custom config."
             )
+
+            # Show warning if overwriting
+            if new_config_name in ModelConfig.list_custom_configs():
+                st.caption(f"⚠️ Will overwrite existing config: `{new_config_name}`")
 
         with col_save2:
             st.markdown("<br>", unsafe_allow_html=True)  # Spacer for alignment
-            if st.button("💾 Save Custom Config", type="primary"):
+            button_label = "💾 Update" if is_overwriting else "💾 Save New"
+            if st.button(button_label, type="primary"):
                 # Build the custom config from modified values
                 custom_config_dict = {}
                 for agent_name in active_config.keys():
@@ -3659,13 +4111,49 @@ elif page == "Agent Config":
                     # Create AgentModelConfig from the values
                     custom_config_dict[agent_name] = AgentModelConfig(**{k: v for k, v in agent_config.items() if v is not None})
 
-                # Save to session state
-                st.session_state.custom_configs[new_config_name] = custom_config_dict
-                st.success(f"✅ Saved as `{new_config_name}`")
-                st.toast(f"Configuration '{new_config_name}' saved! Select it from the dropdown above.")
+                # Save to disk (persistent)
+                try:
+                    ModelConfig.save_custom_config(new_config_name, custom_config_dict)
+                    # Also save to session state for immediate use
+                    st.session_state.custom_configs[new_config_name] = custom_config_dict
+
+                    if is_overwriting:
+                        st.success(f"✅ Updated `{new_config_name}.json`")
+                        st.toast(f"Configuration '{new_config_name}' updated!")
+                    else:
+                        st.success(f"✅ Saved to disk as `{new_config_name}.json`")
+                        st.toast(f"Configuration '{new_config_name}' saved permanently!")
+                    st.rerun()  # Refresh to show in dropdown
+                except Exception as e:
+                    st.error(f"❌ Failed to save: {e}")
+
+        # Delete custom config button
+        if is_custom and selected_config in ModelConfig.list_custom_configs():
+            st.markdown("---")
+            st.markdown("### 🗑️ Delete Configuration")
+            col_del1, col_del2 = st.columns([3, 1])
+
+            with col_del1:
+                st.caption(f"Delete custom config: `{selected_config}`")
+
+            with col_del2:
+                if st.button("🗑️ Delete", type="secondary"):
+                    try:
+                        import os
+                        config_path = os.path.join("custom_configs", f"{selected_config}.json")
+                        if os.path.exists(config_path):
+                            os.remove(config_path)
+                            # Remove from session state
+                            if selected_config in st.session_state.custom_configs:
+                                del st.session_state.custom_configs[selected_config]
+                            st.success(f"✅ Deleted `{selected_config}`")
+                            st.toast(f"Configuration '{selected_config}' deleted!")
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to delete: {e}")
 
         st.markdown("---")
-        st.info("💡 **Note:** Custom configs are saved in your browser session. To make permanent changes, modify `utils/model_config.py` directly.")
+        st.info("💡 **Note:** Custom configs are saved to the `custom_configs/` directory and persist across sessions.")
 
     with tab2:
         st.markdown("### Available Presets")

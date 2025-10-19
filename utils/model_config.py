@@ -57,8 +57,29 @@ class ModelConfig:
         ),
         "qa": AgentModelConfig(
             model="anthropic/claude-3.5-sonnet",
-            temperature=0.5,  # Balanced for analysis
+            temperature=0.5,  # Balanced for analysis (kept for backward compatibility)
             max_tokens=2000
+        ),
+        # Stage-specific QA agents
+        "series_qa": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.4,  # Moderate for strategic thinking
+            max_tokens=3000
+        ),
+        "book_qa": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.5,  # Balanced for structural analysis
+            max_tokens=2500
+        ),
+        "chapter_qa": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.5,  # Balanced for scene analysis
+            max_tokens=2000
+        ),
+        "prose_qa": AgentModelConfig(
+            model="anthropic/claude-3.5-sonnet",
+            temperature=0.4,  # Moderate for prose craft judgment
+            max_tokens=2500
         ),
         "lore": AgentModelConfig(
             model="anthropic/claude-3.5-sonnet",
@@ -246,3 +267,59 @@ class ModelConfig:
                 "lore": {"model": "google/gemini-2.5-flash-lite"}
             }
         }
+
+    @staticmethod
+    def save_custom_config(name: str, config: Dict[str, AgentModelConfig]) -> None:
+        """Save a custom configuration to disk"""
+        import json
+        import os
+
+        # Create custom_configs directory if it doesn't exist
+        config_dir = "custom_configs"
+        os.makedirs(config_dir, exist_ok=True)
+
+        # Convert config to serializable format
+        config_dict = {}
+        for agent_name, agent_config in config.items():
+            config_dict[agent_name] = agent_config.dict(exclude_none=True)
+
+        # Save to JSON file
+        config_path = os.path.join(config_dir, f"{name}.json")
+        with open(config_path, 'w') as f:
+            json.dump(config_dict, f, indent=2)
+
+    @staticmethod
+    def load_custom_config(name: str) -> Optional[Dict[str, AgentModelConfig]]:
+        """Load a custom configuration from disk"""
+        import json
+        import os
+
+        config_path = os.path.join("custom_configs", f"{name}.json")
+        if not os.path.exists(config_path):
+            return None
+
+        with open(config_path, 'r') as f:
+            config_dict = json.load(f)
+
+        # Convert back to AgentModelConfig objects
+        config = {}
+        for agent_name, agent_dict in config_dict.items():
+            config[agent_name] = AgentModelConfig(**agent_dict)
+
+        return config
+
+    @staticmethod
+    def list_custom_configs() -> list:
+        """List all saved custom configurations"""
+        import os
+
+        config_dir = "custom_configs"
+        if not os.path.exists(config_dir):
+            return []
+
+        configs = []
+        for filename in os.listdir(config_dir):
+            if filename.endswith('.json'):
+                configs.append(filename[:-5])  # Remove .json extension
+
+        return sorted(configs)

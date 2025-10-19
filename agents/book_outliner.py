@@ -16,32 +16,39 @@ class BookOutlinerAgent(BaseAgent):
         self.requirements = requirements or {}
 
     def get_prompt(self) -> str:
-        return """You are a professional fiction book outliner specializing in multi-book series.
+        # Get actual requirement values for examples in prompt
+        target_wc_example = self.requirements.get('target_word_count', 100000)
+        chapters_example = self.requirements.get('chapters_per_book', 20)
+        if 'chapters_per_book_range' in self.requirements:
+            min_ch, max_ch = self.requirements['chapters_per_book_range']
+            chapters_example = f"{min_ch}-{max_ch}"
+
+        prompt_template = """You are a professional fiction book outliner specializing in multi-book series.
 
 Goal:
 - Ingest series context, book premise, established lore, and hard constraints.
 - Produce a complete, rigorous book outline with 3-act structure, character arcs, and chapter-level breakdown as strict JSON per the schema.
 
 Input contract (what you will receive):
-{
-  "series_context": {
+{{
+  "series_context": {{
     "title": "Series Title",
     "logline": "One-sentence series premise",
     "genre": "primary genre",
     "subgenres": ["..."],
     "themes": ["..."],
     "persistent_threads": [
-      {"id":"t1", "name":"Thread Name", "throughline":"How this thread develops 1→9", "payoff_book": 9}
+      {{"id":"t1", "name":"Thread Name", "throughline":"How this thread develops 1→9", "payoff_book": 9}}
     ],
-    "escalation_model": {
+    "escalation_model": {{
       "axis": ["stakes","scope","antagonist_capability","cost"],
       "brief": "How each axis escalates across books"
-    },
+    }},
     "universe_principles": [
-      {"id":"p1","rule":"...","implications":["..."],"forbidden":["..."]}
+      {{"id":"p1","rule":"...","implications":["..."],"forbidden":["..."]}}
     ]
-  },
-  "book_to_outline": {
+  }},
+  "book_to_outline": {{
     "book_number": 1,
     "id": "b1",
     "title": "Book 1 Title",
@@ -49,26 +56,26 @@ Input contract (what you will receive):
     "protagonist_goal": "What the protagonist seeks to accomplish",
     "antagonistic_force": "Who or what opposes the protagonist",
     "unique_hook": "What makes this book stand out",
-    "major_turns": {"midpoint":"...","all_is_lost":"...","climax":"..."},
+    "major_turns": {{"midpoint":"...","all_is_lost":"...","climax":"..."}},
     "themes": ["..."],
-    "continuity_tags": {"foreshadows":["t1"],"pays_off":["..."],"reintroduces":["c1","w1"]},
-    "target_word_count": 100000,
+    "continuity_tags": {{"foreshadows":["t1"],"pays_off":["..."],"reintroduces":["c1","w1"]}},
+    "target_word_count": {target_wc},
     "risks": ["..."],
     "open_questions": ["..."]
-  },
-  "lore": {
+  }}}},
+  "lore": {{{{
     "characters": [
-      {"id":"c1","name":"...","role":"protagonist","archetype":"...","description":"...","traits":["..."],"relationships":[{"with":"c2","type":"mentor"}],"status_by_book":{"1":"introduced","3":"setback","9":"resolution"}}
+      {{{{"id":"c1","name":"...","role":"protagonist","archetype":"...","description":"...","traits":["..."],"relationships":[{{{{"with":"c2","type":"mentor"}}}}],"status_by_book":{{{{"1":"introduced","3":"setback","9":"resolution"}}}}}}}}
     ],
-    "factions": [{"id":"fa1","name":"...","goal":"...","methods":"..."}],
-    "locations": [{"id":"l1","name":"...","description":"...","significance":"..."}],
-    "world_elements": [{"id":"w1","name":"...","type":"technology|magic|culture","description":"...","rules":["..."]}]
-  },
-  "constraints": {
-    "chapters_per_book": 20,
-    "target_word_count": 100000
-  }
-}
+    "factions": [{{{{"id":"fa1","name":"...","goal":"...","methods":"..."}}}}],
+    "locations": [{{{{"id":"l1","name":"...","description":"...","significance":"..."}}}}],
+    "world_elements": [{{{{"id":"w1","name":"...","type":"technology|magic|culture","description":"...","rules":["..."]}}}}]
+  }}}},
+  "constraints": {{{{
+    "chapters_per_book": {chapters},
+    "target_word_count": {target_wc}
+  }}}}
+}}
 
 Step 1 — Analysis (internal, do not emit):
 - Position analysis: Where does this book sit in the series arc? What must it set up, develop, or pay off?
@@ -85,37 +92,37 @@ Step 1 — Analysis (internal, do not emit):
 - Pacing: Distribute key beats across chapters to maintain narrative momentum.
 
 Step 2 — Produce output JSON (emit this only):
-{
-  "meta": {
+{{
+  "meta": {{
     "version": "1.0",
     "timestamp": "ISO-8601",
     "book_id": "b1",
     "warnings": ["Any concerns about premise/lore conflicts, pacing risks, etc."]
-  },
-  "act_structure": {
-    "act_1": {
+  }},
+  "act_structure": {{
+    "act_1": {{
       "percentage": 25,
       "word_target": 25000,
       "summary": "Setup: world state, protagonist's status quo, inciting incident that disrupts equilibrium.",
       "key_events": ["Opening Image","Inciting Incident","Debate/Reluctance","Crossing First Threshold"],
       "ending_hook": "What irreversibly commits protagonist to Act 2 journey."
-    },
-    "act_2a": {
+    }},
+    "act_2a": {{
       "percentage": 25,
       "word_target": 25000,
       "summary": "Rising action: new world/rules, B-story introduction, small wins, rising complications.",
       "key_events": ["Fun and Games / Promise of Premise","First Pinch Point (taste of antagonistic force)"],
       "ending_hook": "Leads into Midpoint."
-    },
-    "act_2b": {
+    }},
+    "act_2b": {{
       "percentage": 25,
       "word_target": 25000,
       "summary": "Complications: false victory or revelation at Midpoint, stakes raise, protagonist proactive, then major loss.",
       "midpoint": "Major revelation, false victory, or shift from reactive to proactive. Central turning point.",
       "key_events": ["Midpoint","Second Pinch Point (antagonist tightens grip)","All is Lost moment"],
       "ending_hook": "Darkest hour. Protagonist must dig deep for Act 3."
-    },
-    "act_3": {
+    }},
+    "act_3": {{
       "percentage": 25,
       "word_target": 25000,
       "summary": "Resolution: protagonist regroups, final preparation, climactic confrontation, denouement.",
@@ -123,26 +130,26 @@ Step 2 — Produce output JSON (emit this only):
       "climax": "Ultimate confrontation of protagonist_goal vs antagonistic_force. Highest stakes moment.",
       "resolution": "Immediate aftermath. Character transformation evident. Loose ends tied or deliberately left open.",
       "ending_hook": "Unresolved question or tease leading into next book (if not final book in series)."
-    }
-  },
+    }}
+  }},
   "character_arcs": [
-    {
+    {{
       "character_id": "c1",
       "character_name": "Protagonist Name",
       "starting_state": "Worldview, emotional state, core flaw, belief system at book start.",
       "ending_state": "How worldview, emotional state, and belief system have evolved by book end.",
       "transformation": "The internal journey: what realizations, failures, victories drive the change.",
       "key_moments": [
-        {"chapter": 2, "beat": "Establishes core flaw in action"},
-        {"chapter": 10, "beat": "Midpoint choice reveals character growth"},
-        {"chapter": 18, "beat": "Climactic decision demonstrates transformation"}
+        {{"chapter": 2, "beat": "Establishes core flaw in action"}},
+        {{"chapter": 10, "beat": "Midpoint choice reveals character growth"}},
+        {{"chapter": 18, "beat": "Climactic decision demonstrates transformation"}}
       ],
       "series_arc_position": "Where this character's series-long arc stands after this book."
-    }
+    }}
     // Include arcs for all major POV or supporting characters who undergo change
   ],
   "chapters": [
-    {
+    {{
       "chapter_number": 1,
       "id": "b1c1",
       "title": "Evocative Chapter Title",
@@ -152,29 +159,29 @@ Step 2 — Produce output JSON (emit this only):
         "Concrete event 1 that advances the plot",
         "Concrete event 2 that sets up later payoff"
       ],
-      "character_focus": {
+      "character_focus": {{
         "pov": "POV Character Name (must exist in lore)",
         "present": ["Character A","Character B"],  // ARRAY of character names
         "arc_moments": ["Brief note: How does this chapter develop POV character's arc or reveal traits?"]  // ARRAY of strings, not a single string
-      },
-      "setting": {
+      }},
+      "setting": {{
         "location": "Primary location (should reference lore.locations if applicable)",
         "time": "Relative time anchor, e.g., 'Day 1, dawn' or 'Three weeks after Prologue'",
         "atmosphere": "Tone/mood, e.g., 'Foreboding and tense' or 'Deceptively calm'"
-      },
-      "lore_integration": {
+      }},
+      "lore_integration": {{
         "introduces": ["w1 — first demonstration of magic system"],
         "deepens": ["c2 — mentor relationship with protagonist"],
         "foreshadows": ["t1 — subtle hint of larger conspiracy"]
-      },
+      }},
       "subplot_threads": ["Any B-plot or C-plot threads active in this chapter"],
       "themes": ["Which series or book themes are explored here"],
       "planned_word_count": 5000,
       "pacing_notes": "Action-heavy / Introspective / Balanced / Exposition-light, etc."
-    }
+    }}
     // Repeat for all chapters; array length MUST equal constraints.chapters_per_book
   ]
-}
+}}
 
 Validation rules (hard requirements):
 - JSON only. No prose before or after, no comments, no trailing commas.
@@ -218,11 +225,16 @@ Output discipline:
 - Emit ONLY the JSON object. No preamble like "Here is the outline:" or postamble like "Let me know if you need changes."
 - Use double quotes for all JSON strings.
 - Ensure all lists are properly closed with ].
-- Ensure all objects are properly closed with }.
+- Ensure all objects are properly closed with }}.
 - Do not use undefined or null; use empty string "" or empty array [] as appropriate.
 
 Version: 1.0
 """
+
+        return prompt_template.format(
+            target_wc=target_wc_example,
+            chapters=chapters_example
+        )
 
     def process(self, input_data: FictionProject) -> FictionProject:
         """Expand a book into a detailed outline."""
@@ -275,7 +287,7 @@ Version: 1.0
         max_retries = 3
         for attempt in range(max_retries):
             if attempt == 0:
-                response_text = self.invoke_llm_with_lore(self.get_prompt(), context, input_data.metadata.project_id)
+                response_text = self.invoke_llm_with_lore(self.get_prompt(), context, input_data.metadata.project_id, project=input_data)
             else:
                 # Retry with explicit emphasis on the missing chapters
                 retry_prompt = f"""
@@ -290,7 +302,7 @@ Continue from where you left off and complete the full outline with ALL {chapter
 Previous incomplete output will be discarded. Generate the COMPLETE JSON with all {chapters_per_book} chapters.
 """
                 print(f"⚠️  Retry {attempt}/{max_retries}: Requesting all {chapters_per_book} chapters...")
-                response_text = self.invoke_llm_with_lore(self.get_prompt() + retry_prompt, context, input_data.metadata.project_id)
+                response_text = self.invoke_llm_with_lore(self.get_prompt() + retry_prompt, context, input_data.metadata.project_id, project=input_data)
 
             # Quick validation check - parse and count chapters
             try:

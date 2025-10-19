@@ -15,7 +15,15 @@ class SeriesRefinerAgent(BaseAgent):
         self.requirements = requirements or {}
 
     def get_prompt(self) -> str:
-        return """You are a professional fiction series refiner.
+        # Get actual requirement values for examples in prompt
+        num_books_example = self.requirements.get('num_books', 10)
+        target_wc_example = self.requirements.get('target_word_count', 100000)
+        chapters_example = self.requirements.get('chapters_per_book', 20)
+        if 'chapters_per_book_range' in self.requirements:
+            min_ch, max_ch = self.requirements['chapters_per_book_range']
+            chapters_example = f"{min_ch}-{max_ch}"
+
+        prompt_template = """You are a professional fiction series refiner.
 
 Goal:
 - Ingest free-form text/markdown and optional feedback JSON.
@@ -30,9 +38,9 @@ Input contract (what you will receive):
 {
   "raw_text": "string — may include headings (#, ##), bullets, numbered beats, scene lists, etc.",
   "constraints": {
-    "book_count": "REQUIRED - exact number of books to generate (e.g., 10)",
-    "target_word_count_per_book": "Target word count for each book (e.g., 100000)",
-    "chapters_per_book": "Chapters per book (e.g., 20)"
+    "book_count": "REQUIRED - exact number of books to generate (e.g., %(num_books)s)",
+    "target_word_count_per_book": "Target word count for each book (e.g., %(target_wc)s)",
+    "chapters_per_book": "Chapters per book (e.g., %(chapters)s)"
   },
   "feedback": [
     {
@@ -87,7 +95,7 @@ Step 3 — Produce output JSON (emit this only):
 
 CRITICAL BEFORE YOU BEGIN:
 - You MUST generate EXACTLY constraints.book_count books in the books array
-- If constraints.book_count = 10, generate 10 complete book entries
+- If constraints.book_count = %(num_books)s, generate %(num_books)s complete book entries
 - If you generate fewer books, your output will be REJECTED
 - Count your book entries before submitting to ensure the count matches
 
@@ -181,13 +189,19 @@ Validation rules (hard requirements):
 
 CRITICAL VALIDATION RULE:
 The books array MUST contain EXACTLY the number of books specified in input constraints.book_count.
-If constraints.book_count = 10, you MUST generate 10 books. If you generate 9 or 11, the output will be REJECTED.
+If constraints.book_count = %(num_books)s, you MUST generate %(num_books)s books. If you generate fewer or more, the output will be REJECTED.
 
 Notes:
 - When raw_text contains explicit per-book headings or beats (e.g., "## Outlaw", "## Rogue", "## Guard"), map them to books.title and seed premise, antagonistic_force, and major_turns.
 - If numbering is implied by order of sections, assign book_number accordingly, unless an explicit number is present.
 - If author-provided beats conflict with inferred genre or themes, keep the beats and note the conflict in meta.warnings.
 """
+
+        return prompt_template % {
+            'num_books': num_books_example,
+            'target_wc': target_wc_example,
+            'chapters': chapters_example
+        }
 
     def process(self, input_data: FictionProject) -> FictionProject:
         """Process the series concept and expand it into a detailed outline."""
@@ -235,22 +249,22 @@ Notes:
         max_retries = 3
         for attempt in range(max_retries):
             if attempt == 0:
-                response_text = self.invoke_llm(self.get_prompt(), context)
+                response_text = self.invoke_llm(self.get_prompt(), context, project=input_data)
             else:
                 # Retry with explicit emphasis on the missing books
                 retry_prompt = f"""
 CRITICAL ERROR IN PREVIOUS ATTEMPT:
-You generated {len(response_json.get('series', {}).get('books', []))} books but MUST generate {num_books} books.
+You generated {len(response_json.get('series', {}).get('books', []))} books but MUST generate %(num_books)s books.
 
-REQUIREMENT: Generate ALL {num_books} books in the books array.
+REQUIREMENT: Generate ALL %(num_books)s books in the books array.
 You are missing {num_books - len(response_json.get('series', {}).get('books', []))} books.
 
-Continue from where you left off and complete the full series outline with ALL {num_books} books.
+Continue from where you left off and complete the full series outline with ALL %(num_books)s books.
 
-Previous incomplete output will be discarded. Generate the COMPLETE JSON with all {num_books} books.
+Previous incomplete output will be discarded. Generate the COMPLETE JSON with all %(num_books)s books.
 """
-                print(f"⚠️  Retry {attempt}/{max_retries}: Requesting all {num_books} books...")
-                response_text = self.invoke_llm(self.get_prompt() + retry_prompt, context)
+                print(f"⚠️  Retry {attempt}/{max_retries}: Requesting all %(num_books)s books...")
+                response_text = self.invoke_llm(self.get_prompt() + retry_prompt, context, project=input_data)
 
             # Quick validation check - parse and count books
             try:
@@ -265,10 +279,10 @@ Previous incomplete output will be discarded. Generate the COMPLETE JSON with al
                 book_count = len(test_json.get('series', {}).get('books', []))
 
                 if book_count == num_books:
-                    print(f"✓ LLM generated correct number of books ({book_count}/{num_books})")
+                    print(f"✓ LLM generated correct number of books ({book_count}/%(num_books)s)")
                     break
                 else:
-                    print(f"⚠️  LLM generated {book_count}/{num_books} books on attempt {attempt + 1}")
+                    print(f"⚠️  LLM generated {book_count}/%(num_books)s books on attempt {attempt + 1}")
                     response_json = test_json  # Save for retry message
                     if attempt == max_retries - 1:
                         print(f"❌ Failed after {max_retries} attempts")

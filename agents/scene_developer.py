@@ -9,23 +9,30 @@ from models.schema import Beat
 class SceneDeveloperAgent(BaseAgent):
     """Agent that expands a single scene into beats"""
 
-    def get_prompt(self) -> str:
-        return """You are a professional scene developer.
+    def __init__(self, llm, requirements=None, **kwargs):
+        super().__init__(llm, **kwargs)
+        self.requirements = requirements or {}
+        # Get beat range from requirements or use defaults
+        self.min_beats = self.requirements.get('min_beats_per_scene', 5)
+        self.max_beats = self.requirements.get('max_beats_per_scene', 10)
 
-Create 5-10 story beats for this scene. Each beat is a small unit of action/dialogue/description.
+    def get_prompt(self) -> str:
+        return f"""You are a professional scene developer.
+
+Create {self.min_beats}-{self.max_beats} story beats for this scene. Each beat is a small unit of action/dialogue/description.
 
 Output ONLY valid JSON:
-{
+{{
   "beats": [
-    {
+    {{
       "beat_number": 1,
       "description": "What happens in this beat",
       "emotional_tone": "The emotional quality",
       "character_actions": ["action1", "action2"],
       "dialogue_summary": "Key dialogue points"
-    }
+    }}
   ]
-}
+}}
 
 Version: 1.0"""
 
@@ -45,16 +52,16 @@ Setting: {scene.setting.location}
 Characters: {', '.join(scene.characters_present)}
 Conflicts: {', '.join([c.description for c in scene.conflicts])}
 
-Create 5-10 beats that accomplish the scene's purpose."""
+Create {self.min_beats}-{self.max_beats} beats that accomplish the scene's purpose."""
 
         # Invoke LLM with retry logic for beat count
-        min_beats = 5
-        max_beats = 10
+        min_beats = self.min_beats
+        max_beats = self.max_beats
         max_retries = 3
 
         for attempt in range(max_retries):
             if attempt == 0:
-                response = self.invoke_llm_with_lore(self.get_prompt(), context, input_data.metadata.project_id)
+                response = self.invoke_llm_with_lore(self.get_prompt(), context, input_data.metadata.project_id, project=input_data)
             else:
                 retry_prompt = f"""
 CRITICAL ERROR IN PREVIOUS ATTEMPT:
@@ -65,7 +72,7 @@ REQUIREMENT: Generate between {min_beats}-{max_beats} beats for Scene {scene.sce
 Generate the COMPLETE JSON with the appropriate number of beats within the allowed range.
 """
                 print(f"⚠️  Retry {attempt}/{max_retries}: Requesting {min_beats}-{max_beats} beats...")
-                response = self.invoke_llm_with_lore(self.get_prompt() + retry_prompt, context, input_data.metadata.project_id)
+                response = self.invoke_llm_with_lore(self.get_prompt() + retry_prompt, context, input_data.metadata.project_id, project=input_data)
 
             # Quick validation check
             try:
@@ -132,9 +139,9 @@ Generate the COMPLETE JSON with the appropriate number of beats within the allow
             if "beats" in response_json:
                 beats_data = response_json["beats"]
 
-                # VALIDATION: Beat count must be within acceptable range (5-10)
-                min_beats = 5
-                max_beats = 10
+                # VALIDATION: Beat count must be within acceptable range
+                min_beats = self.min_beats
+                max_beats = self.max_beats
                 num_beats = len(beats_data)
 
                 if not (min_beats <= num_beats <= max_beats):

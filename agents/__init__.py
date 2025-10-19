@@ -6,6 +6,10 @@ from .scene_developer import SceneDeveloperAgent
 from .beat_developer import BeatDeveloperAgent
 from .prose_generator import ProseGeneratorAgent
 from .qa_agent import QAAgent
+from .series_qa_agent import SeriesQAAgent
+from .book_qa_agent import BookQAAgent
+from .chapter_qa_agent import ChapterQAAgent
+from .prose_qa_agent import ProseQAAgent
 from .lore_master import LoreMasterAgent
 from .story_analyst import StoryAnalystAgent
 from .consistency_validator import ConsistencyValidatorAgent
@@ -21,6 +25,10 @@ __all__ = [
     "BeatDeveloperAgent",
     "ProseGeneratorAgent",
     "QAAgent",
+    "SeriesQAAgent",
+    "BookQAAgent",
+    "ChapterQAAgent",
+    "ProseQAAgent",
     "LoreMasterAgent",
     "StoryAnalystAgent",
     "ConsistencyValidatorAgent",

@@ -17,6 +17,10 @@ from agents import (
     BeatDeveloperAgent,
     ProseGeneratorAgent,
     QAAgent,
+    SeriesQAAgent,
+    BookQAAgent,
+    ChapterQAAgent,
+    ProseQAAgent,
     LoreMasterAgent
 )
 from utils.state_manager import StateManager
@@ -112,7 +116,11 @@ class FictionPipeline:
             "scene": SceneDeveloperAgent(self.llms["scene"], lore_store=self.lore_store),
             "beat": BeatDeveloperAgent(self.llms["beat"], lore_store=self.lore_store),
             "prose": ProseGeneratorAgent(self.llms["prose"], lore_store=self.lore_store),
-            "qa": QAAgent(self.llms["qa"], lore_store=self.lore_store),
+            "qa": QAAgent(self.llms["qa"], lore_store=self.lore_store),  # Kept for backward compatibility
+            "series_qa": SeriesQAAgent(self.llms.get("series_qa", self.llms["qa"]), lore_store=self.lore_store),
+            "book_qa": BookQAAgent(self.llms.get("book_qa", self.llms["qa"]), lore_store=self.lore_store),
+            "chapter_qa": ChapterQAAgent(self.llms.get("chapter_qa", self.llms["qa"]), lore_store=self.lore_store),
+            "prose_qa": ProseQAAgent(self.llms.get("prose_qa", self.llms["qa"]), lore_store=self.lore_store),
             "lore": LoreMasterAgent(self.llms["lore"], lore_store=self.lore_store)
         }
 
@@ -226,8 +234,19 @@ class FictionPipeline:
         for attempt in range(max_retries):
             print(f"  [Quality Gate] QA Review (attempt {attempt + 1}/{max_retries})...")
 
+            # Select appropriate QA agent based on stage
+            qa_agent_map = {
+                "series": "series_qa",
+                "book": "book_qa",
+                "chapter": "chapter_qa",
+                "scene": "chapter_qa",  # Scene is part of chapter development
+                "beat": "chapter_qa",    # Beat is part of chapter development
+                "prose": "prose_qa"
+            }
+            qa_agent_key = qa_agent_map.get(stage_name, "qa")  # Default to general QA if stage not mapped
+
             # QA Review
-            project, qa_report = self.agents["qa"].process(project)
+            project, qa_report = self.agents[qa_agent_key].process(project)
 
             print(f"    QA Score: {qa_report.scores.get('overall', 0)}/10")
             print(f"    Approval: {qa_report.approval}")
@@ -320,12 +339,19 @@ class FictionPipeline:
             f"See above for details."
         )
 
-    def run(self, initial_project: FictionProject) -> FictionProject:
+    def run(
+        self,
+        initial_project: FictionProject,
+        progress_callback=None,
+        resume_from: str = None
+    ) -> FictionProject:
         """
         Run the complete pipeline
 
         Args:
             initial_project: Initial project with series concept
+            progress_callback: Optional callback for progress updates - callable(stage: str, progress: float)
+            resume_from: Optional stage name to resume from (e.g., "3_book1_ch5")
 
         Returns:
             Completed FictionProject
@@ -336,35 +362,126 @@ class FictionPipeline:
         print("FICTION GENERATION PIPELINE")
         print("=" * 60)
 
+        # Determine total work units for progress calculation
+        total_books = len(project.series.books) if project.series.books else self.requirements.get('num_books', 3)
+        total_chapters = sum(len(book.chapters) for book in project.series.books) if project.series.books else (total_books * self.requirements.get('chapters_per_book', 15))
+        total_scenes = sum(len(chapter.scenes) for book in project.series.books for chapter in book.chapters) if any(book.chapters for book in project.series.books) else (total_chapters * 3)
+
+        work_units = {
+            'series': 5.0,  # Series refinement
+            'books': 10.0,  # All books outlined
+            'chapters': 15.0,  # All chapters developed
+            'scenes': 20.0,  # All scenes developed
+            'beats': 20.0,  # All beats developed
+            'prose': 25.0,  # All prose generated
+            'final': 5.0  # Final QA
+        }
+        completed_work = 0.0
+
+        def report_progress(stage: str, substage_progress: float = 0.0):
+            """Report progress via callback"""
+            if progress_callback:
+                progress_callback(stage, completed_work + substage_progress)
+
+        # Check if we should skip stages (resume logic)
+        skip_series = resume_from and not resume_from.startswith("1_")
+        skip_books_before = None
+        skip_chapters_before = None
+        skip_scenes_before = None
+        skip_prose_before = None
+
+        if resume_from:
+            print(f"\n📍 Resuming from checkpoint: {resume_from}")
+            # Parse resume point to determine what to skip
+            if resume_from.startswith("2_book_"):
+                skip_series = True
+                # Extract book number
+                try:
+                    book_num = int(resume_from.split("_")[2])
+                    skip_books_before = book_num - 1
+                except:
+                    pass
+            elif resume_from.startswith("3_book"):
+                skip_series = True
+                skip_books_before = float('inf')  # Skip all books
+            elif resume_from.startswith("4_"):
+                skip_series = True
+                skip_books_before = float('inf')
+                skip_chapters_before = float('inf')
+            elif resume_from.startswith("5_"):
+                skip_series = True
+                skip_books_before = float('inf')
+                skip_chapters_before = float('inf')
+                skip_scenes_before = float('inf')
+            elif resume_from.startswith("6_"):
+                skip_series = True
+                skip_books_before = float('inf')
+                skip_chapters_before = float('inf')
+                skip_scenes_before = float('inf')
+                skip_prose_before = float('inf')
+
         # Stage 1: Series Refiner
-        print("\n[1/6] Running Series Refiner...")
-        project = self.agents["series"].process(project)
-        self.state_manager.save_state(project, "1_series_refined")
+        if skip_series:
+            print("\n[1/6] Skipping Series Refiner (already completed)")
+            completed_work += work_units['series']
+            report_progress("series_refined", 0)
+        else:
+            print("\n[1/6] Running Series Refiner...")
+            report_progress("series_refiner", 0)
+            project = self.agents["series"].process(project)
+            self.state_manager.save_state(project, "1_series_refined")
 
-        # Store lore in vector database
-        if self.lore_store and self.lore_store.enabled:
-            print("  [Lore] Storing lore in vector database...")
-            self.lore_store.store_all_lore(project)
+            # Store lore in vector database
+            if self.lore_store and self.lore_store.enabled:
+                print("  [Lore] Storing lore in vector database...")
+                self.lore_store.store_all_lore(project)
 
-        project = self.quality_gate(project, "series")
+            project = self.quality_gate(project, "series")
+            completed_work += work_units['series']
+            report_progress("series_refined", 0)
 
         # Stage 2: Book Outliner (for each book)
         print("\n[2/6] Running Book Outliner...")
         for book_idx, book in enumerate(project.series.books):
+            if skip_books_before and book.book_number <= skip_books_before:
+                print(f"  Skipping Book {book.book_number} (already completed)")
+                completed_work += work_units['books'] / len(project.series.books)
+                continue
+
             print(f"  Processing Book {book.book_number}: {book.title}...")
+            stage_name = f"book_{book.book_number}_outliner"
+            report_progress(stage_name, 0)
+
             self.agents["book"].book_number = book.book_number
             project = self.agents["book"].process(project)
             self.state_manager.save_state(project, f"2_book_{book.book_number}_outlined")
             project = self.quality_gate(project, f"book_{book.book_number}")
 
+            completed_work += work_units['books'] / len(project.series.books)
+            report_progress(f"book_{book.book_number}_outlined", 0)
+
         # Stage 3: Chapter Developer (for each chapter in each book)
         print("\n[3/6] Running Chapter Developer...")
+        chapter_count = 0
         for book in project.series.books:
             for chapter_idx in range(len(book.chapters)):
                 chapter = book.chapters[chapter_idx]
+                chapter_count += 1
+
+                if skip_chapters_before and skip_chapters_before == float('inf'):
+                    print(f"  Skipping Chapter {chapter.chapter_number} of Book {book.book_number} (already completed)")
+                    completed_work += work_units['chapters'] / total_chapters
+                    continue
+
                 print(f"  Processing Chapter {chapter.chapter_number} of Book {book.book_number}...")
+                stage_name = f"book{book.book_number}_ch{chapter.chapter_number}"
+                report_progress(stage_name, 0)
+
                 project = self.agents["chapter"].process_chapter(project, book.book_number - 1, chapter_idx)
                 self.state_manager.save_state(project, f"3_book{book.book_number}_ch{chapter.chapter_number}")
+
+                completed_work += work_units['chapters'] / total_chapters
+                report_progress(stage_name, 0)
 
         # Stage 4: Scene Developer (for each scene in each chapter)
         print("\n[4/6] Running Scene Developer...")
@@ -372,36 +489,78 @@ class FictionPipeline:
             for chapter_idx, chapter in enumerate(book.chapters):
                 for scene_idx in range(len(chapter.scenes)):
                     scene = chapter.scenes[scene_idx]
+
+                    if skip_scenes_before and skip_scenes_before == float('inf'):
+                        print(f"  Skipping Scene {scene.scene_number} (already completed)")
+                        completed_work += work_units['scenes'] / total_scenes
+                        continue
+
                     print(f"  Processing Scene {scene.scene_number} (Ch{chapter.chapter_number}, Book{book.book_number})...")
+                    stage_name = f"b{book.book_number}_ch{chapter.chapter_number}_sc{scene.scene_number}"
+                    report_progress(stage_name, 0)
+
                     project = self.agents["scene"].process_scene(project, book_idx, chapter_idx, scene_idx)
                     self.state_manager.save_state(
                         project,
                         f"4_b{book.book_number}_ch{chapter.chapter_number}_sc{scene.scene_number}"
                     )
 
+                    completed_work += work_units['scenes'] / total_scenes
+                    report_progress(stage_name, 0)
+
         # Stage 5: Beat Developer (for each beat in each scene)
         print("\n[5/6] Running Beat Developer...")
         for book_idx, book in enumerate(project.series.books):
             for chapter_idx, chapter in enumerate(book.chapters):
                 for scene_idx, scene in enumerate(chapter.scenes):
+                    scene = chapter.scenes[scene_idx]
+                    stage_name = f"b{book.book_number}_ch{chapter.chapter_number}_sc{scene.scene_number}_beats"
+
                     print(f"  Processing Beats for Scene {scene.scene_number}...")
+                    report_progress(stage_name, 0)
+
                     project = self.agents["beat"].process_scene_beats(project, book_idx, chapter_idx, scene_idx)
                     self.state_manager.save_state(
                         project,
                         f"5_b{book.book_number}_ch{chapter.chapter_number}_sc{scene.scene_number}_beats"
                     )
 
+                    completed_work += work_units['beats'] / total_scenes
+                    report_progress(stage_name, 0)
+
         # Stage 6: Prose Generator (for each beat)
         print("\n[6/6] Running Prose Generator...")
+        total_beats = sum(
+            len(scene.beats)
+            for book in project.series.books
+            for chapter in book.chapters
+            for scene in chapter.scenes
+        )
+        beat_count = 0
+
         for book_idx, book in enumerate(project.series.books):
             for chapter_idx, chapter in enumerate(book.chapters):
                 for scene_idx, scene in enumerate(chapter.scenes):
                     for beat_idx in range(len(scene.beats)):
                         beat = scene.beats[beat_idx]
-                        print(f"  Generating prose for Beat {beat.beat_number}...")
+                        beat_count += 1
+
+                        if skip_prose_before and skip_prose_before == float('inf'):
+                            print(f"  Skipping prose for Beat {beat.beat_number} (already completed)")
+                            completed_work += work_units['prose'] / total_beats
+                            continue
+
+                        print(f"  Generating prose for Beat {beat.beat_number} ({beat_count}/{total_beats})...")
+                        stage_name = f"b{book.book_number}_ch{chapter.chapter_number}_sc{scene.scene_number}_beat{beat.beat_number}"
+                        report_progress(stage_name, 0)
+
                         project = self.agents["prose"].process_beat(
                             project, book_idx, chapter_idx, scene_idx, beat_idx
                         )
+
+                        completed_work += work_units['prose'] / total_beats
+                        report_progress(stage_name, 0)
+
                     # Save after each scene's prose is complete
                     self.state_manager.save_state(
                         project,
@@ -410,22 +569,26 @@ class FictionPipeline:
 
         # Final Quality Gate
         print("\n[Final] Running Final Quality Review...")
+        report_progress("final_qa", 0)
         project = self.quality_gate(project, "final")
         self.state_manager.save_state(project, "final")
+
+        completed_work += work_units['final']
+        report_progress("completed", 0)
 
         print("\n" + "=" * 60)
         print("✓ PIPELINE COMPLETE!")
         print(f"✓ Project ID: {project.metadata.project_id}")
         print(f"✓ Total Books: {len(project.series.books)}")
         if project.series.books:
-            total_chapters = sum(len(book.chapters) for book in project.series.books)
-            total_scenes = sum(
+            total_chapters_final = sum(len(book.chapters) for book in project.series.books)
+            total_scenes_final = sum(
                 len(chapter.scenes)
                 for book in project.series.books
                 for chapter in book.chapters
             )
-            print(f"✓ Total Chapters: {total_chapters}")
-            print(f"✓ Total Scenes: {total_scenes}")
+            print(f"✓ Total Chapters: {total_chapters_final}")
+            print(f"✓ Total Scenes: {total_scenes_final}")
         print(f"✓ Final state saved to: {self.output_dir}/{project.metadata.project_id}_state.json")
         print("=" * 60)
 
